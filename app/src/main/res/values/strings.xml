@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DemonicMusicHost</string>
+    <string name="tagline">Musik gemeinsam erleben</string>
+
+    <!-- Home Screen -->
+    <string name="connect_spotify">Mit Spotify verbinden</string>
+    <string name="spotify_premium_active">Premium aktiv ✓</string>
+    <string name="spotify_free_account">Kein Premium – nur als Gast möglich</string>
+    <string name="host_session">Session starten</string>
+    <string name="join_session">Beitreten</string>
+    <string name="session_code_hint">Session-Code eingeben</string>
+
+    <!-- Host Screen -->
+    <string name="now_playing">Läuft gerade</string>
+    <string name="queue_empty">Warteschlange ist leer\nFüge Songs hinzu!</string>
+    <string name="add_to_queue">+ Song hinzufügen</string>
+    <string name="end_session">Session beenden</string>
+    <string name="guests_can_add_on">Gäste: Hinzufügen AN</string>
+    <string name="guests_can_add_off">Gäste: Hinzufügen AUS</string>
+
+    <!-- Guest Screen -->
+    <string name="leave_session">Session verlassen</string>
+    <string name="session_ended_title">Session beendet</string>
+    <string name="session_ended_message">Der Host hat die Session beendet.</string>
+    <string name="playing_via_host_spotify">Wird über Spotify des Hosts abgespielt</string>
+    <string name="guests_cannot_add">Der Host hat das Hinzufügen von Songs deaktiviert</string>
+
+    <!-- Search Screen -->
+    <string name="search_hint">Suche nach Songs…</string>
+    <string name="search_type_hint">Gib mindestens 2 Zeichen ein</string>
+    <string name="search_no_results">Keine Ergebnisse gefunden</string>
+    <string name="tab_spotify">Spotify</string>
+    <string name="tab_youtube">YouTube</string>
+    <string name="tab_local">Lokal</string>
+
+    <!-- Notifications -->
+    <string name="default_notification_channel_id">session_notifications</string>
+
+    <!-- Dialogs -->
+    <string name="end_session_title">Session beenden</string>
+    <string name="end_session_message">Möchtest du die Session wirklich beenden? Alle Gäste werden aus der Session entfernt.</string>
+    <string name="leave_session_title">Session verlassen</string>
+    <string name="leave_session_message">Möchtest du die Session wirklich verlassen?</string>
+    <string name="btn_end">Beenden</string>
+    <string name="btn_leave">Verlassen</string>
+    <string name="btn_cancel">Abbrechen</string>
+    <string name="btn_ok">OK</string>
+
+    <!-- Errors -->
+    <string name="error_not_authenticated">Nicht mit Spotify angemeldet</string>
+    <string name="error_premium_required">Spotify Premium ist erforderlich, um eine Session als Host zu starten</string>
+    <string name="error_session_not_found">Session nicht gefunden</string>
+    <string name="error_session_full">Session ist voll</string>
+    <string name="error_session_inactive">Diese Session ist nicht mehr aktiv</string>
+    <string name="error_guests_cannot_add">Der Host hat das Hinzufügen von Songs deaktiviert</string>
+
+    <!-- Accessibility -->
+    <string name="play_pause">Play / Pause</string>
+    <string name="skip">Überspringen</string>
+    <string name="back">Zurück</string>
+    <string name="remove_from_queue">Aus Warteschlange entfernen</string>
+</resources>

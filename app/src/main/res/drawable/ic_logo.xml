@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- App logo: stylized music note with a waveform -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="80dp"
+    android:height="80dp"
+    android:viewportWidth="80"
+    android:viewportHeight="80">
+
+    <!-- Background circle (Discord dark) -->
+    <path
+        android:fillColor="#2C2F33"
+        android:pathData="M40,40 m-38,0 a38,38 0 1,0 76,0 a38,38 0 1,0 -76,0" />
+
+    <!-- Music note stem (Spotify green) -->
+    <path
+        android:fillColor="#1DB954"
+        android:pathData="M46,22 L46,50 C46,53.3 43.3,56 40,56 C36.7,56 34,53.3 34,50 C34,46.7 36.7,44 40,44 C41.4,44 42.7,44.5 43.7,45.3 L43.7,22 Z" />
+
+    <!-- Note flag -->
+    <path
+        android:fillColor="#1DB954"
+        android:pathData="M46,22 C46,22 56,25 56,32 C56,32 52,28 46,28 Z" />
+
+    <!-- Waveform bars (Discord blurple) -->
+    <path
+        android:fillColor="#5865F2"
+        android:pathData="M20,38 L20,42 Q20,44 22,44 Q24,44 24,42 L24,38 Q24,36 22,36 Q20,36 20,38Z" />
+    <path
+        android:fillColor="#5865F2"
+        android:pathData="M26,34 L26,46 Q26,48 28,48 Q30,48 30,46 L30,34 Q30,32 28,32 Q26,32 26,34Z" />
+    <path
+        android:fillColor="#5865F2"
+        android:pathData="M14,40 L14,40 Q14,42 16,42 Q18,42 18,40 L18,40 Q18,38 16,38 Q14,38 14,40Z" />
+
+</vector>

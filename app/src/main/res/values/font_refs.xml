@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Font references pointing to system fonts.
+    Replace with actual downloaded font files if desired.
+    Add @font/regular, @font/medium, @font/bold TTF files to res/font/
+-->
+<resources>
+    <!-- These use system Roboto variants as fallback until font files are added -->
+    <string name="font_regular">sans-serif</string>
+    <string name="font_medium">sans-serif-medium</string>
+    <string name="font_bold">sans-serif-black</string>
+</resources>

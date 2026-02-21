@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/homeFragment">
+
+    <!-- Home Fragment -->
+    <fragment
+        android:id="@+id/homeFragment"
+        android:name="com.demonicmusichost.app.ui.home.HomeFragment"
+        android:label="DemonicMusicHost"
+        tools:layout="@layout/fragment_home">
+
+        <action
+            android:id="@+id/action_home_to_host"
+            app:destination="@id/hostFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right">
+            <argument
+                android:name="sessionId"
+                app:argType="string" />
+        </action>
+
+        <action
+            android:id="@+id/action_home_to_guest"
+            app:destination="@id/guestFragment"
+            app:enterAnim="@anim/slide_in_right"
+            app:exitAnim="@anim/slide_out_left"
+            app:popEnterAnim="@anim/slide_in_left"
+            app:popExitAnim="@anim/slide_out_right">
+            <argument
+                android:name="sessionId"
+                app:argType="string" />
+        </action>
+    </fragment>
+
+    <!-- Host Fragment -->
+    <fragment
+        android:id="@+id/hostFragment"
+        android:name="com.demonicmusichost.app.ui.host.HostFragment"
+        android:label="Host"
+        tools:layout="@layout/fragment_host">
+
+        <argument
+            android:name="sessionId"
+            app:argType="string" />
+
+        <action
+            android:id="@+id/action_host_to_search"
+            app:destination="@id/searchFragment"
+            app:enterAnim="@anim/slide_in_up"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/slide_out_down">
+            <argument
+                android:name="sessionId"
+                app:argType="string" />
+            <argument
+                android:name="isHost"
+                app:argType="boolean"
+                android:defaultValue="true" />
+        </action>
+    </fragment>
+
+    <!-- Guest Fragment -->
+    <fragment
+        android:id="@+id/guestFragment"
+        android:name="com.demonicmusichost.app.ui.guest.GuestFragment"
+        android:label="Gast"
+        tools:layout="@layout/fragment_guest">
+
+        <argument
+            android:name="sessionId"
+            app:argType="string" />
+
+        <action
+            android:id="@+id/action_guest_to_search"
+            app:destination="@id/searchFragment"
+            app:enterAnim="@anim/slide_in_up"
+            app:exitAnim="@anim/fade_out"
+            app:popEnterAnim="@anim/fade_in"
+            app:popExitAnim="@anim/slide_out_down">
+            <argument
+                android:name="sessionId"
+                app:argType="string" />
+            <argument
+                android:name="isHost"
+                app:argType="boolean"
+                android:defaultValue="false" />
+        </action>
+    </fragment>
+
+    <!-- Search Fragment -->
+    <fragment
+        android:id="@+id/searchFragment"
+        android:name="com.demonicmusichost.app.ui.search.SearchFragment"
+        android:label="Suche"
+        tools:layout="@layout/fragment_search">
+
+        <argument
+            android:name="sessionId"
+            app:argType="string" />
+        <argument
+            android:name="isHost"
+            app:argType="boolean"
+            android:defaultValue="false" />
+    </fragment>
+
+</navigation>
