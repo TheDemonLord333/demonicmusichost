@@ -29,14 +29,14 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            minifyEnabled true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
         debug {
-            isMinifyEnabled = false
+            minifyEnabled false
         }
     }
 
@@ -116,7 +116,7 @@ dependencies {
 
     // QR Code generation (for session codes)
     implementation("com.github.zxing.zxing:core:3.5.2")
-    implementation("com.journeyapps:zxing-android-embedded:4.3.0") { isTransitive = false }
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0") { transitive = false }
 
     // Spotify Auth SDK
     implementation("com.spotify.android:auth:2.1.0")
