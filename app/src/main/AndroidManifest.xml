@@ -92,7 +92,7 @@
 
         <!-- Firebase Messaging (for push notifications to guests) -->
         <service
-            android:name=".service.FirebaseMessagingService"
+            android:name=".service.AppFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
