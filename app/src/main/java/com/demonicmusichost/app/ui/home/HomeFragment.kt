@@ -137,6 +137,25 @@ class HomeFragment : Fragment() {
                 }
             }
         }
+
+        // SpotifyCallbackActivity delivers the token via SpotifyAuthBus when the
+        // custom-URI redirect is intercepted (the ActivityResultLauncher path receives
+        // RESULT_CANCELED in that case, so this is the authoritative result path).
+        viewLifecycleOwner.lifecycleScope.launch {
+            SpotifyAuthBus.events.collect { response ->
+                when (response.type) {
+                    AuthorizationResponse.Type.TOKEN -> {
+                        viewModel.onSpotifyAuthSuccess(response.accessToken, response.expiresIn)
+                    }
+                    AuthorizationResponse.Type.ERROR -> {
+                        binding.root.showSnackbar(
+                            "Spotify-Anmeldung fehlgeschlagen: ${response.error}"
+                        )
+                    }
+                    else -> Unit
+                }
+            }
+        }
     }
 
     private fun launchSpotifyAuth() {
