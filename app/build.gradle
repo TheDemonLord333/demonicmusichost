@@ -27,8 +27,11 @@ android {
         buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"demonicmusichost://callback\"")
 
         // Spotify redirect URI is handled by MainActivity (singleTop + intent-filter).
-        // manifestPlaceholders are intentionally not set here so that LoginActivity
-        // does NOT register a competing intent-filter for demonicmusichost://callback.
+        // The SDK's LoginActivity manifest requires these placeholders to exist or the
+        // manifest merger fails. We supply a dummy scheme/host that is never matched so
+        // that LoginActivity does NOT compete with MainActivity for demonicmusichost://callback.
+        manifestPlaceholders["redirectSchemeName"] = "demonicmusichost-sdk-unused"
+        manifestPlaceholders["redirectHostName"] = "unused"
     }
 
     buildTypes {
