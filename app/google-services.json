@@ -1,28 +1,21 @@
 {
-  "_PLACEHOLDER_": "REPLACE THIS FILE WITH YOUR ACTUAL google-services.json FROM FIREBASE CONSOLE",
-  "_INSTRUCTIONS_": [
-    "1. Go to https://console.firebase.google.com",
-    "2. Create or select your project",
-    "3. Add Android app with package name: com.demonicmusichost.app",
-    "4. Download google-services.json",
-    "5. Replace this file with the downloaded one"
-  ],
   "project_info": {
-    "project_number": "YOUR_PROJECT_NUMBER",
-    "project_id": "YOUR_PROJECT_ID",
-    "storage_bucket": "YOUR_PROJECT_ID.appspot.com"
+    "project_number": "866464099422",
+    "project_id": "demonicmusichost",
+    "storage_bucket": "demonicmusichost.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:YOUR_PROJECT_NUMBER:android:YOUR_APP_ID",
+        "mobilesdk_app_id": "1:866464099422:android:7129a73fb6963c4f4d98cf",
         "android_client_info": {
           "package_name": "com.demonicmusichost.app"
         }
       },
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "YOUR_FIREBASE_API_KEY"
+          "current_key": "AIzaSyD--MqWOkcoLEJ6h5jeEX_N_7gl7OViC-4"
         }
       ],
       "services": {

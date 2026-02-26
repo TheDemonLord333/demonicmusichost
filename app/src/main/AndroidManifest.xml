@@ -37,28 +37,21 @@
         android:hardwareAccelerated="true"
         tools:targetApi="31">
 
-        <!-- Main Activity -->
+        <!-- Main Activity
+             singleTop is required so that the Spotify OAuth redirect
+             (demonicmusichost://callback) is delivered via onNewIntent()
+             to the existing instance rather than creating a new one. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.DemonicMusicHost.Splash"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
-
-        <!-- Spotify Auth Callback Activity -->
-        <activity
-            android:name="com.spotify.sdk.android.auth.LoginActivity"
-            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
-
-        <!-- Spotify Callback URI -->
-        <activity
-            android:name=".util.SpotifyCallbackActivity"
-            android:exported="true"
-            android:launchMode="singleTask">
+            <!-- Spotify OAuth redirect URI -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
@@ -68,6 +61,17 @@
                     android:host="callback" />
             </intent-filter>
         </activity>
+
+        <!-- Spotify Auth Callback Activity -->
+        <activity
+            android:name="com.spotify.sdk.android.auth.LoginActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Spotify Callback URI - handled by LoginActivity via manifestPlaceholders -->
+        <!-- SpotifyCallbackActivity intentionally has no intent-filter; LoginActivity
+             (configured via redirectSchemeName/redirectHostName manifestPlaceholders)
+             intercepts demonicmusichost://callback and delivers the result directly
+             to the spotifyAuthLauncher ActivityResultCallback. -->
 
         <!-- Music Playback Service -->
         <service
@@ -92,7 +96,7 @@
 
         <!-- Firebase Messaging (for push notifications to guests) -->
         <service
-            android:name=".service.FirebaseMessagingService"
+            android:name=".service.AppFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

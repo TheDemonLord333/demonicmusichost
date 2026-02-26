@@ -14,10 +14,7 @@ class SpotifyCallbackActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val response = AuthorizationClient.getResponse(
-            AuthorizationResponse.Type.TOKEN.ordinal,
-            intent
-        )
+        val response = AuthorizationClient.getResponse(Activity.RESULT_OK, intent)
         // Broadcast the response so the ViewModel / fragment can pick it up
         SpotifyAuthBus.emit(response)
         finish()

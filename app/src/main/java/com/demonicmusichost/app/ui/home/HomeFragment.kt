@@ -137,6 +137,27 @@ class HomeFragment : Fragment() {
                 }
             }
         }
+
+        // MainActivity.onNewIntent() receives the Spotify OAuth redirect
+        // (demonicmusichost://callback) and emits the parsed response here.
+        // This is the authoritative result path because LoginActivity is
+        // singleTask, which causes spotifyAuthLauncher to always receive
+        // RESULT_CANCELED immediately (startActivityForResult cross-task limitation).
+        viewLifecycleOwner.lifecycleScope.launch {
+            SpotifyAuthBus.events.collect { response ->
+                when (response.type) {
+                    AuthorizationResponse.Type.TOKEN -> {
+                        viewModel.onSpotifyAuthSuccess(response.accessToken, response.expiresIn)
+                    }
+                    AuthorizationResponse.Type.ERROR -> {
+                        binding.root.showSnackbar(
+                            "Spotify-Anmeldung fehlgeschlagen: ${response.error}"
+                        )
+                    }
+                    else -> Unit
+                }
+            }
+        }
     }
 
     private fun launchSpotifyAuth() {

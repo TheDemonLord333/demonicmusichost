@@ -5,7 +5,8 @@ plugins {
     id("com.google.gms.google-services")
     id("androidx.navigation.safeargs.kotlin")
     id("kotlin-parcelize")
-    kotlin("kapt")
+    id("kotlin-kapt")
+
 }
 
 android {
@@ -22,21 +23,25 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // Add your API keys here
-        buildConfigField("String", "YOUTUBE_API_KEY", "\"YOUR_YOUTUBE_API_KEY\"")
-        buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"YOUR_SPOTIFY_CLIENT_ID\"")
+        buildConfigField("String", "YOUTUBE_API_KEY", "\"AIzaSyAxborXuUVYR_YuTl1QKevjY5jlrbJ7ugA\"")
+        buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"3fd7631171484ca1b2c76faeeccab147\"")
         buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"demonicmusichost://callback\"")
+
+        // Spotify Auth SDK manifest placeholders
+       // manifestPlaceholders["redirectSchemeName"] = "demonicmusichost"
+      //  manifestPlaceholders["redirectHostName"] = "callback"
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            minifyEnabled true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
         }
         debug {
-            isMinifyEnabled = false
+            minifyEnabled false
         }
     }
 
@@ -75,15 +80,16 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
 
     // Hilt Dependency Injection
-    implementation("com.google.dagger:hilt-android:2.50")
-    kapt("com.google.dagger:hilt-android-compiler:2.50")
+    implementation("com.google.dagger:hilt-android:2.51.1")
+    kapt("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-fragment:1.1.0")
 
-    // Firebase
-    implementation(platform("com.google.firebase:firebase-bom:32.7.2"))
-    implementation("com.google.firebase:firebase-database-ktx")
-    implementation("com.google.firebase:firebase-auth-ktx")
-    implementation("com.google.firebase:firebase-analytics-ktx")
+    // Firebase (versions managed by BOM)
+    implementation(platform("com.google.firebase:firebase-bom:34.9.0"))
+    implementation("com.google.firebase:firebase-database")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-analytics")
+    implementation("com.google.firebase:firebase-messaging")
 
     // ExoPlayer / Media3
     implementation("androidx.media3:media3-exoplayer:1.2.1")
@@ -115,8 +121,8 @@ dependencies {
     implementation("com.airbnb.android:lottie:6.3.0")
 
     // QR Code generation (for session codes)
-    implementation("com.github.zxing.zxing:core:3.5.2")
-    implementation("com.journeyapps:zxing-android-embedded:4.3.0") { isTransitive = false }
+    implementation("com.google.zxing:core:3.5.2")
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0") { transitive = false }
 
     // Spotify Auth SDK
     implementation("com.spotify.android:auth:2.1.0")
