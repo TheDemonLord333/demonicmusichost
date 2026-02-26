@@ -54,20 +54,11 @@
             android:name="com.spotify.sdk.android.auth.LoginActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
-        <!-- Spotify Callback URI -->
-        <activity
-            android:name=".util.SpotifyCallbackActivity"
-            android:exported="true"
-            android:launchMode="singleTask">
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data
-                    android:scheme="demonicmusichost"
-                    android:host="callback" />
-            </intent-filter>
-        </activity>
+        <!-- Spotify Callback URI - handled by LoginActivity via manifestPlaceholders -->
+        <!-- SpotifyCallbackActivity intentionally has no intent-filter; LoginActivity
+             (configured via redirectSchemeName/redirectHostName manifestPlaceholders)
+             intercepts demonicmusichost://callback and delivers the result directly
+             to the spotifyAuthLauncher ActivityResultCallback. -->
 
         <!-- Music Playback Service -->
         <service

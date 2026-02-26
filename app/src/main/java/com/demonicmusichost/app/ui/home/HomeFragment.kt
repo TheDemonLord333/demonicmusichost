@@ -13,7 +13,6 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.fragment.findNavController
 import com.demonicmusichost.app.R
 import com.demonicmusichost.app.databinding.FragmentHomeBinding
-import com.demonicmusichost.app.util.SpotifyAuthBus
 import com.demonicmusichost.app.util.hide
 import com.demonicmusichost.app.util.show
 import com.demonicmusichost.app.util.showSnackbar
@@ -138,24 +137,6 @@ class HomeFragment : Fragment() {
             }
         }
 
-        // SpotifyCallbackActivity delivers the token via SpotifyAuthBus when the
-        // custom-URI redirect is intercepted (the ActivityResultLauncher path receives
-        // RESULT_CANCELED in that case, so this is the authoritative result path).
-        viewLifecycleOwner.lifecycleScope.launch {
-            SpotifyAuthBus.events.collect { response ->
-                when (response.type) {
-                    AuthorizationResponse.Type.TOKEN -> {
-                        viewModel.onSpotifyAuthSuccess(response.accessToken, response.expiresIn)
-                    }
-                    AuthorizationResponse.Type.ERROR -> {
-                        binding.root.showSnackbar(
-                            "Spotify-Anmeldung fehlgeschlagen: ${response.error}"
-                        )
-                    }
-                    else -> Unit
-                }
-            }
-        }
     }
 
     private fun launchSpotifyAuth() {
