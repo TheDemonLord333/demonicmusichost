@@ -25,16 +25,25 @@ class MainActivity : AppCompatActivity() {
         val navHostFragment = supportFragmentManager
             .findFragmentById(R.id.nav_host_fragment) as NavHostFragment
         navController = navHostFragment.navController
+
+        // Handle Spotify callback if this instance was started fresh from the redirect URI
+        // (e.g. system killed MainActivity while LoginActivity was open and recreated it).
+        handleSpotifyCallback(intent)
     }
 
     /**
-     * Called when the Spotify OAuth redirect (demonicmusichost://callback) arrives.
-     * Because MainActivity is singleTop and owns the redirect intent-filter,
-     * Chrome Custom Tab delivers the token/error URI here rather than to LoginActivity.
-     * We parse it and broadcast via SpotifyAuthBus so HomeFragment can react.
+     * Called when the Spotify OAuth redirect (demonicmusichost://callback) arrives via
+     * Chrome Custom Tab firing ACTION_VIEW for the custom URI scheme.
+     * Because MainActivity is singleTask it always receives this on the EXISTING instance
+     * rather than spawning a new one inside Chrome's task.
+     * We parse the response and broadcast it via SpotifyAuthBus so HomeFragment can react.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        handleSpotifyCallback(intent)
+    }
+
+    private fun handleSpotifyCallback(intent: Intent) {
         val response = AuthorizationClient.getResponse(RESULT_OK, intent)
         if (response.type != AuthorizationResponse.Type.EMPTY) {
             SpotifyAuthBus.emit(response)
