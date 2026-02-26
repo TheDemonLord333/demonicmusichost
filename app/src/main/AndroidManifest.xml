@@ -38,13 +38,18 @@
         tools:targetApi="31">
 
         <!-- Main Activity
-             singleTop is required so that the Spotify OAuth redirect
-             (demonicmusichost://callback) is delivered via onNewIntent()
-             to the existing instance rather than creating a new one. -->
+             singleTask is required so that the Spotify OAuth redirect
+             (demonicmusichost://callback) fired by Chrome Custom Tab is
+             delivered via onNewIntent() to the EXISTING instance in Task A,
+             not to a new instance created in Chrome's task.
+             singleTop would not suffice: when Chrome fires the ACTION_VIEW
+             intent from its own task context, MainActivity is not at the top
+             of that task, so Android would create a new instance instead of
+             calling onNewIntent() on the original. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:theme="@style/Theme.DemonicMusicHost.Splash"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
