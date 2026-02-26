@@ -26,9 +26,9 @@ android {
         buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"YOUR_SPOTIFY_CLIENT_ID\"")
         buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"demonicmusichost://callback\"")
 
-        // Spotify Auth SDK manifest placeholders
-        manifestPlaceholders["redirectSchemeName"] = "demonicmusichost"
-        manifestPlaceholders["redirectHostName"] = "callback"
+        // Spotify redirect URI is handled by MainActivity (singleTop + intent-filter).
+        // manifestPlaceholders are intentionally not set here so that LoginActivity
+        // does NOT register a competing intent-filter for demonicmusichost://callback.
     }
 
     buildTypes {

@@ -37,15 +37,28 @@
         android:hardwareAccelerated="true"
         tools:targetApi="31">
 
-        <!-- Main Activity -->
+        <!-- Main Activity
+             singleTop is required so that the Spotify OAuth redirect
+             (demonicmusichost://callback) is delivered via onNewIntent()
+             to the existing instance rather than creating a new one. -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
+            android:launchMode="singleTop"
             android:theme="@style/Theme.DemonicMusicHost.Splash"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- Spotify OAuth redirect URI -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="demonicmusichost"
+                    android:host="callback" />
             </intent-filter>
         </activity>
 
