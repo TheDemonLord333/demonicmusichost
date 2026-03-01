@@ -25,7 +25,6 @@ import com.demonicmusichost.app.util.toTimeString
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
-import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.utils.loadOrCueVideoById
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -213,13 +212,13 @@ class HostFragment : Fragment() {
                         binding.youtubePlayerView.isVisible = true
                         val player = youTubePlayer
                         if (player != null) {
-                            player.loadOrCueVideoById(event.videoId, 0f)
+                            player.loadVideo(event.videoId, 0f)
                         } else {
                             // Player not ready yet – add a one-shot listener
                             binding.youtubePlayerView.addYouTubePlayerListener(
                                 object : AbstractYouTubePlayerListener() {
                                     override fun onReady(youTubePlayer: YouTubePlayer) {
-                                        youTubePlayer.loadOrCueVideoById(event.videoId, 0f)
+                                        youTubePlayer.loadVideo(event.videoId, 0f)
                                         binding.youtubePlayerView.removeYouTubePlayerListener(this)
                                     }
                                 }
