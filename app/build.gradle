@@ -10,12 +10,13 @@ plugins {
 
 // Load API keys from local.properties (never committed to git)
 def localProps = new Properties()
-def localPropsFile = rootProject.file("local.properties")
+def localPropsFile = new File(rootProject.projectDir, "local.properties")
 if (localPropsFile.exists()) {
-    localPropsFile.withInputStream { localProps.load(it) }
+    def fis = new FileInputStream(localPropsFile)
+    try { localProps.load(fis) } finally { fis.close() }
 }
-def youtubeApiKey     = localProps.getProperty("YOUTUBE_API_KEY",  "")
-def spotifyClientId   = localProps.getProperty("SPOTIFY_CLIENT_ID", "")
+def youtubeApiKey      = localProps.getProperty("YOUTUBE_API_KEY", "")
+def spotifyClientId    = localProps.getProperty("SPOTIFY_CLIENT_ID", "")
 def spotifyRedirectUri = localProps.getProperty("SPOTIFY_REDIRECT_URI", "demonicmusichost://callback")
 
 android {
