@@ -1,13 +1,12 @@
 package com.demonicmusichost.app.ui.host
 
+import android.content.ActivityNotFoundException
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.webkit.WebChromeClient
-import android.webkit.WebSettings
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -20,6 +19,7 @@ import com.bumptech.glide.Glide
 import com.demonicmusichost.app.R
 import com.demonicmusichost.app.data.model.SongSource
 import com.demonicmusichost.app.databinding.FragmentHostBinding
+import com.demonicmusichost.app.service.MusicService
 import com.demonicmusichost.app.ui.queue.QueueAdapter
 import com.demonicmusichost.app.util.copyToClipboard
 import com.demonicmusichost.app.util.showSnackbar
@@ -49,7 +49,6 @@ class HostFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupQueue()
         setupControls()
-        setupWebView()
         observeViewModel()
     }
 
@@ -109,20 +108,6 @@ class HostFragment : Fragment() {
         }
     }
 
-    private fun setupWebView() {
-        binding.webViewYouTube.apply {
-            settings.apply {
-                javaScriptEnabled = true
-                mediaPlaybackRequiresUserGesture = false
-                domStorageEnabled = true
-                allowFileAccess = true
-                mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
-            }
-            webViewClient = WebViewClient()
-            webChromeClient = WebChromeClient()
-        }
-    }
-
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.currentSong.collect { song ->
@@ -145,7 +130,6 @@ class HostFragment : Fragment() {
                             .placeholder(R.drawable.ic_music_note)
                             .into(binding.ivAlbumArt)
                     }
-                    binding.webViewYouTube.isVisible = song.source == SongSource.YOUTUBE
                 }
             }
         }
@@ -187,11 +171,37 @@ class HostFragment : Fragment() {
                     is HostEvent.ShowMessage -> binding.root.showSnackbar(event.message)
                     HostEvent.SessionEnded -> findNavController().navigateUp()
                     is HostEvent.PlayYouTube -> {
-                        val url = "https://www.youtube.com/embed/${event.videoId}?autoplay=1"
-                        binding.webViewYouTube.loadUrl(url)
+                        // Try native YouTube app first, fall back to browser
+                        val appIntent = Intent(Intent.ACTION_VIEW,
+                            Uri.parse("vnd.youtube:${event.videoId}"))
+                        try {
+                            startActivity(appIntent)
+                        } catch (e: ActivityNotFoundException) {
+                            startActivity(Intent(Intent.ACTION_VIEW,
+                                Uri.parse("https://www.youtube.com/watch?v=${event.videoId}")))
+                        }
                     }
                     is HostEvent.PlayLocal -> {
-                        // ExoPlayer playback handled by MusicService
+                        requireContext().startService(
+                            Intent(requireContext(), MusicService::class.java).apply {
+                                action = MusicService.ACTION_PLAY_LOCAL
+                                putExtra(MusicService.EXTRA_FILE_PATH, event.filePath)
+                            }
+                        )
+                    }
+                    HostEvent.PauseLocal -> {
+                        requireContext().startService(
+                            Intent(requireContext(), MusicService::class.java).apply {
+                                action = MusicService.ACTION_PAUSE
+                            }
+                        )
+                    }
+                    HostEvent.ResumeLocal -> {
+                        requireContext().startService(
+                            Intent(requireContext(), MusicService::class.java).apply {
+                                action = MusicService.ACTION_RESUME
+                            }
+                        )
                     }
                 }
             }
@@ -200,7 +210,6 @@ class HostFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
-        binding.webViewYouTube.destroy()
         _binding = null
     }
 }

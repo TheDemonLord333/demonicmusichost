@@ -1,11 +1,13 @@
 package com.demonicmusichost.app.data.repository
 
+import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.Intent
 import android.content.SharedPreferences
+import android.net.Uri
 import com.demonicmusichost.app.BuildConfig
 import com.demonicmusichost.app.data.model.SearchResult
 import com.demonicmusichost.app.data.network.SpotifyApiService
-import com.demonicmusichost.app.data.network.SpotifyPlayRequest
 import com.demonicmusichost.app.data.network.SpotifyUserResponse
 import com.spotify.sdk.android.auth.AuthorizationRequest
 import com.spotify.sdk.android.auth.AuthorizationResponse
@@ -130,17 +132,20 @@ class SpotifyRepository @Inject constructor(
         emit(results)
     }
 
-    suspend fun startPlayback(uri: String, positionMs: Long = 0L): Result<Unit> {
+    /**
+     * Opens the native Spotify app to play the given track URI (e.g. "spotify:track:ID").
+     * This avoids the Web-API 404 "No active device" error that occurs when no Spotify
+     * client is registered as active for the current account.
+     */
+    fun startPlayback(uri: String, positionMs: Long = 0L): Result<Unit> {
         return try {
-            val token = accessToken ?: return Result.failure(Exception("Not authenticated"))
-            spotifyApiService.startPlayback(
-                authorization = "Bearer $token",
-                body = SpotifyPlayRequest(
-                    uris = listOf(uri),
-                    positionMs = positionMs
-                )
-            )
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            }
+            context.startActivity(intent)
             Result.success(Unit)
+        } catch (e: ActivityNotFoundException) {
+            Result.failure(Exception("Spotify ist nicht installiert"))
         } catch (e: Exception) {
             Result.failure(e)
         }
