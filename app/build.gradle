@@ -140,6 +140,9 @@ dependencies {
     // Spotify Auth SDK
     implementation("com.spotify.android:auth:2.1.0")
 
+    // YouTube in-app player (IFrame API wrapper, has onVideoEnded callback)
+    implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.0")
+
     // Room (local cache)
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")

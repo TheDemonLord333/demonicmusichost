@@ -9,17 +9,16 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import com.demonicmusichost.app.MainActivity
-import com.demonicmusichost.app.data.model.Song
-import com.demonicmusichost.app.data.model.SongSource
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MusicService : MediaSessionService() {
 
+    @Inject lateinit var playbackEventBus: PlaybackEventBus
+
     private var mediaSession: MediaSession? = null
     private lateinit var player: ExoPlayer
-
-    private var onPlaybackCompleted: (() -> Unit)? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -27,7 +26,7 @@ class MusicService : MediaSessionService() {
             addListener(object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_ENDED) {
-                        onPlaybackCompleted?.invoke()
+                        playbackEventBus.notifySongEnded()
                     }
                 }
             })
@@ -63,41 +62,6 @@ class MusicService : MediaSessionService() {
             ACTION_STOP -> player.stop()
         }
         return START_NOT_STICKY
-    }
-
-    fun playSong(song: Song) {
-        if (song.source == SongSource.LOCAL && song.localFilePath.isNotBlank()) {
-            val mediaItem = MediaItem.fromUri(Uri.parse(song.localFilePath))
-            player.setMediaItem(mediaItem)
-            player.prepare()
-            player.play()
-        }
-        // Spotify: handled by Spotify SDK / API (not ExoPlayer)
-        // YouTube: handled by WebView embedded player in Fragment
-    }
-
-    fun pausePlayback() {
-        player.pause()
-    }
-
-    fun resumePlayback() {
-        player.play()
-    }
-
-    fun stopPlayback() {
-        player.stop()
-    }
-
-    fun seekTo(positionMs: Long) {
-        player.seekTo(positionMs)
-    }
-
-    fun getCurrentPosition(): Long = player.currentPosition
-
-    fun isPlaying(): Boolean = player.isPlaying
-
-    fun setOnPlaybackCompleted(callback: () -> Unit) {
-        onPlaybackCompleted = callback
     }
 
     companion object {

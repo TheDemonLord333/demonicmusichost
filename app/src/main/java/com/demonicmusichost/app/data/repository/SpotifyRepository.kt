@@ -9,19 +9,36 @@ import com.demonicmusichost.app.BuildConfig
 import com.demonicmusichost.app.data.model.SearchResult
 import com.demonicmusichost.app.data.network.SpotifyApiService
 import com.demonicmusichost.app.data.network.SpotifyUserResponse
+import com.demonicmusichost.app.service.PlaybackEventBus
 import com.spotify.sdk.android.auth.AuthorizationRequest
 import com.spotify.sdk.android.auth.AuthorizationResponse
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
 class SpotifyRepository @Inject constructor(
     private val spotifyApiService: SpotifyApiService,
+    private val playbackEventBus: PlaybackEventBus,
     @ApplicationContext private val context: Context
 ) {
+
+    /** Background scope for polling; outlives any single ViewModel. */
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private var pollJob: Job? = null
+
+    /** URI of the track we last commanded Spotify to play. */
+    private var currentPlayingUri: String? = null
+    private var wasPlayingLastPoll = false
 
     companion object {
         const val SPOTIFY_REQUEST_CODE = 1337
@@ -133,9 +150,9 @@ class SpotifyRepository @Inject constructor(
     }
 
     /**
-     * Opens the native Spotify app to play the given track URI (e.g. "spotify:track:ID").
-     * This avoids the Web-API 404 "No active device" error that occurs when no Spotify
-     * client is registered as active for the current account.
+     * Opens the native Spotify app to play the given track URI (e.g. "spotify:track:ID"),
+     * then starts background polling to detect when the track ends so we can auto-advance
+     * the in-app queue.
      */
     fun startPlayback(uri: String, positionMs: Long = 0L): Result<Unit> {
         return try {
@@ -143,12 +160,64 @@ class SpotifyRepository @Inject constructor(
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             context.startActivity(intent)
+            currentPlayingUri = uri
+            wasPlayingLastPoll = false
+            startPolling()
             Result.success(Unit)
         } catch (e: ActivityNotFoundException) {
             Result.failure(Exception("Spotify ist nicht installiert"))
         } catch (e: Exception) {
             Result.failure(e)
         }
+    }
+
+    /**
+     * Polls the Spotify Web API every 4 seconds to detect when the current track ends.
+     * Emits [PlaybackEventBus.notifySongEnded] when end is detected, then stops polling.
+     * After launching the Spotify app via Intent the phone is an active Spotify device,
+     * so the Web API calls succeed.
+     */
+    fun startPolling() {
+        pollJob?.cancel()
+        pollJob = repositoryScope.launch {
+            while (isActive) {
+                delay(4_000L)
+                try {
+                    val token = accessToken ?: break
+                    val state = spotifyApiService.getCurrentPlaybackState("Bearer $token")
+                    if (state == null) {
+                        wasPlayingLastPoll = false
+                        continue
+                    }
+                    val trackEnded = when {
+                        // Spotify auto-advanced to a different track
+                        state.isPlaying && state.item?.uri != currentPlayingUri
+                            && currentPlayingUri != null -> true
+                        // Was playing, now stopped, position reset → natural end
+                        !state.isPlaying && wasPlayingLastPoll && state.progressMs < 3_000L -> true
+                        else -> false
+                    }
+                    if (trackEnded) {
+                        // Pause Spotify so it doesn't continue into its own queue
+                        runCatching { spotifyApiService.pausePlayback("Bearer $token") }
+                        currentPlayingUri = null
+                        wasPlayingLastPoll = false
+                        playbackEventBus.notifySongEnded()
+                        break  // stop polling until next song starts
+                    }
+                    wasPlayingLastPoll = state.isPlaying
+                } catch (_: Exception) {
+                    // Network error or token expired – keep polling silently
+                }
+            }
+        }
+    }
+
+    fun stopPolling() {
+        pollJob?.cancel()
+        pollJob = null
+        currentPlayingUri = null
+        wasPlayingLastPoll = false
     }
 
     suspend fun pausePlayback(): Result<Unit> {

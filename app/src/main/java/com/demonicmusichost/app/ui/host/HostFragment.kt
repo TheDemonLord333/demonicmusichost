@@ -1,8 +1,6 @@
 package com.demonicmusichost.app.ui.host
 
-import android.content.ActivityNotFoundException
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -25,6 +23,10 @@ import com.demonicmusichost.app.util.copyToClipboard
 import com.demonicmusichost.app.util.showSnackbar
 import com.demonicmusichost.app.util.toTimeString
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.utils.loadOrCueVideoById
+import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -36,6 +38,9 @@ class HostFragment : Fragment() {
 
     private val viewModel: HostViewModel by viewModels()
     private lateinit var queueAdapter: QueueAdapter
+
+    /** Reference to the YouTubePlayer once it is ready. */
+    private var youTubePlayer: YouTubePlayer? = null
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -49,6 +54,7 @@ class HostFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         setupQueue()
         setupControls()
+        setupYouTubePlayer()
         observeViewModel()
     }
 
@@ -94,9 +100,7 @@ class HostFragment : Fragment() {
             binding.root.showSnackbar("Session-Code kopiert: $code")
         }
 
-        binding.btnToggleGuestAdd.setOnClickListener {
-            viewModel.toggleGuestsCanAdd()
-        }
+        binding.btnToggleGuestAdd.setOnClickListener { viewModel.toggleGuestsCanAdd() }
 
         binding.btnEndSession.setOnClickListener {
             MaterialAlertDialogBuilder(requireContext())
@@ -106,6 +110,35 @@ class HostFragment : Fragment() {
                 .setNegativeButton("Abbrechen", null)
                 .show()
         }
+    }
+
+    private fun setupYouTubePlayer() {
+        // Register with the lifecycle so the player is properly released
+        viewLifecycleOwner.lifecycle.addObserver(binding.youtubePlayerView)
+
+        binding.youtubePlayerView.addYouTubePlayerListener(object : AbstractYouTubePlayerListener() {
+
+            override fun onReady(youTubePlayer: YouTubePlayer) {
+                this@HostFragment.youTubePlayer = youTubePlayer
+            }
+
+            override fun onStateChange(
+                youTubePlayer: YouTubePlayer,
+                state: com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerState
+            ) {
+                when (state) {
+                    com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerState.ENDED -> {
+                        // Video finished → auto-advance to next song in our queue
+                        viewModel.onYouTubeSongEnded()
+                        binding.youtubePlayerView.isVisible = false
+                    }
+                    com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerState.PLAYING -> {
+                        // Keep ViewModel in sync with actual player state
+                    }
+                    else -> Unit
+                }
+            }
+        })
     }
 
     private fun observeViewModel() {
@@ -130,6 +163,10 @@ class HostFragment : Fragment() {
                             .placeholder(R.drawable.ic_music_note)
                             .into(binding.ivAlbumArt)
                     }
+                    // Show YouTube player only while a YouTube song is active
+                    binding.youtubePlayerView.isVisible = song.source == SongSource.YOUTUBE
+                } else {
+                    binding.youtubePlayerView.isVisible = false
                 }
             }
         }
@@ -170,17 +207,26 @@ class HostFragment : Fragment() {
                     is HostEvent.ShowError -> binding.root.showSnackbar(event.message)
                     is HostEvent.ShowMessage -> binding.root.showSnackbar(event.message)
                     HostEvent.SessionEnded -> findNavController().navigateUp()
+
                     is HostEvent.PlayYouTube -> {
-                        // Try native YouTube app first, fall back to browser
-                        val appIntent = Intent(Intent.ACTION_VIEW,
-                            Uri.parse("vnd.youtube:${event.videoId}"))
-                        try {
-                            startActivity(appIntent)
-                        } catch (e: ActivityNotFoundException) {
-                            startActivity(Intent(Intent.ACTION_VIEW,
-                                Uri.parse("https://www.youtube.com/watch?v=${event.videoId}")))
+                        // Load into the in-app YouTubePlayerView (no app switch)
+                        binding.youtubePlayerView.isVisible = true
+                        val player = youTubePlayer
+                        if (player != null) {
+                            player.loadOrCueVideoById(event.videoId, 0f)
+                        } else {
+                            // Player not ready yet – add a one-shot listener
+                            binding.youtubePlayerView.addYouTubePlayerListener(
+                                object : AbstractYouTubePlayerListener() {
+                                    override fun onReady(youTubePlayer: YouTubePlayer) {
+                                        youTubePlayer.loadOrCueVideoById(event.videoId, 0f)
+                                        binding.youtubePlayerView.removeYouTubePlayerListener(this)
+                                    }
+                                }
+                            )
                         }
                     }
+
                     is HostEvent.PlayLocal -> {
                         requireContext().startService(
                             Intent(requireContext(), MusicService::class.java).apply {
@@ -210,6 +256,7 @@ class HostFragment : Fragment() {
 
     override fun onDestroyView() {
         super.onDestroyView()
+        youTubePlayer = null
         _binding = null
     }
 }

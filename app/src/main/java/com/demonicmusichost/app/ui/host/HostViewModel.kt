@@ -10,6 +10,7 @@ import com.demonicmusichost.app.data.model.Song
 import com.demonicmusichost.app.data.model.SongSource
 import com.demonicmusichost.app.data.repository.SessionRepository
 import com.demonicmusichost.app.data.repository.SpotifyRepository
+import com.demonicmusichost.app.service.PlaybackEventBus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +36,7 @@ sealed class HostEvent {
 class HostViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val spotifyRepository: SpotifyRepository,
+    private val playbackEventBus: PlaybackEventBus,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -64,6 +66,24 @@ class HostViewModel @Inject constructor(
     init {
         observeSession()
         observeQueue()
+        observeSongEnded()
+    }
+
+    /**
+     * Listens to [PlaybackEventBus.songEnded] which is fired by MusicService (local files)
+     * and SpotifyRepository (Spotify polling). Advances the queue automatically.
+     */
+    private fun observeSongEnded() {
+        viewModelScope.launch {
+            playbackEventBus.songEnded.collect {
+                playNextInQueue()
+            }
+        }
+    }
+
+    /** Called by HostFragment when the YouTube player fires the video-ended callback. */
+    fun onYouTubeSongEnded() {
+        playNextInQueue()
     }
 
     private fun observeSession() {
@@ -293,4 +313,9 @@ class HostViewModel @Inject constructor(
     fun getSessionCode(): String = _session.value?.sessionCode ?: ""
 
     fun getGuestCount(): Int = _session.value?.getGuestCount() ?: 0
+
+    override fun onCleared() {
+        super.onCleared()
+        spotifyRepository.stopPolling()
+    }
 }

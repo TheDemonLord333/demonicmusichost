@@ -254,14 +254,16 @@
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- YouTube WebView -->
-            <WebView
-                android:id="@+id/webViewYouTube"
+            <!-- YouTube in-app player (IFrame API) – only visible when a YouTube song plays -->
+            <com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
+                android:id="@+id/youtubePlayerView"
                 android:layout_width="match_parent"
-                android:layout_height="220dp"
+                android:layout_height="wrap_content"
                 android:layout_marginHorizontal="16dp"
                 android:layout_marginTop="12dp"
-                android:visibility="gone" />
+                android:visibility="gone"
+                app:videoId=""
+                app:autoPlay="false" />
 
             <!-- Host Controls -->
             <LinearLayout
