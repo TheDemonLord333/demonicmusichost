@@ -58,6 +58,10 @@ class HomeFragment : Fragment() {
             launchSpotifyAuth()
         }
 
+        binding.btnReturnToSession.setOnClickListener {
+            viewModel.returnToActiveSession()
+        }
+
         binding.etSessionCode.setOnEditorActionListener { _, _, _ ->
             val code = binding.etSessionCode.text.toString()
             viewModel.joinSession(code)
@@ -100,6 +104,12 @@ class HomeFragment : Fragment() {
         }
 
         viewLifecycleOwner.lifecycleScope.launch {
+            viewModel.activeHostSessionId.collect { sessionId ->
+                binding.cardActiveSession.isVisible = sessionId != null
+            }
+        }
+
+        viewLifecycleOwner.lifecycleScope.launch {
             viewModel.events.collect { event ->
                 when (event) {
                     is HomeEvent.NavigateToHost -> {
@@ -120,9 +130,6 @@ class HomeFragment : Fragment() {
             }
         }
 
-        // SpotifyAuthTrampoline starts LoginActivity in a non-singleTask context and
-        // emits the result here, bypassing the RESULT_CANCELED issue that occurs when
-        // MainActivity (singleTask) calls startActivityForResult directly.
         viewLifecycleOwner.lifecycleScope.launch {
             SpotifyAuthBus.events.collect { result ->
                 when (result) {

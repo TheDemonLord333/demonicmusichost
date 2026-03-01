@@ -56,6 +56,9 @@ class HostViewModel @Inject constructor(
     private val _events = MutableSharedFlow<HostEvent>()
     val events: SharedFlow<HostEvent> = _events.asSharedFlow()
 
+    /** Songs that were played before the current one, most recent last. */
+    private val previousSongs = ArrayDeque<Song>()
+
     init {
         observeSession()
         observeQueue()
@@ -148,6 +151,9 @@ class HostViewModel @Inject constructor(
                 return@launch
             }
 
+            // Push current song to history before advancing
+            _currentSong.value?.let { previousSongs.addLast(it) }
+
             val nextSong = queue.first()
             sessionRepository.setCurrentSong(sessionId, nextSong)
             sessionRepository.removeFromQueue(sessionId, nextSong.id)
@@ -162,6 +168,72 @@ class HostViewModel @Inject constructor(
                 }
                 SongSource.LOCAL -> {
                     _events.emit(HostEvent.PlayLocal(nextSong.localFilePath))
+                    Result.success(Unit)
+                }
+            }
+
+            result.onSuccess {
+                _isPlaying.value = true
+                sessionRepository.updatePlaybackInfo(
+                    sessionId,
+                    PlaybackInfo(state = PlaybackState.PLAYING, positionMs = 0L)
+                )
+            }.onFailure { e ->
+                _events.emit(HostEvent.ShowError("Wiedergabe fehlgeschlagen: ${e.message}"))
+            }
+        }
+    }
+
+    fun playPrevious() {
+        viewModelScope.launch {
+            val prev = previousSongs.removeLastOrNull()
+
+            if (prev == null) {
+                // No history — restart current song from the beginning
+                val current = _currentSong.value ?: return@launch
+                _playbackPositionMs.value = 0L
+                val result = when (current.source) {
+                    SongSource.SPOTIFY -> spotifyRepository.startPlayback(current.spotifyUri, 0L)
+                    SongSource.YOUTUBE -> {
+                        _events.emit(HostEvent.PlayYouTube(current.youtubeVideoId))
+                        Result.success(Unit)
+                    }
+                    SongSource.LOCAL -> {
+                        _events.emit(HostEvent.PlayLocal(current.localFilePath))
+                        Result.success(Unit)
+                    }
+                }
+                result.onSuccess {
+                    _isPlaying.value = true
+                    sessionRepository.updatePlaybackInfo(
+                        sessionId,
+                        PlaybackInfo(state = PlaybackState.PLAYING, positionMs = 0L)
+                    )
+                }.onFailure { e ->
+                    _events.emit(HostEvent.ShowError("Wiedergabe fehlgeschlagen: ${e.message}"))
+                }
+                return@launch
+            }
+
+            // Put current song back at the front of the queue
+            _currentSong.value?.let { current ->
+                val updatedQueue = listOf(current) + _queue.value
+                sessionRepository.reorderQueue(sessionId, updatedQueue)
+            }
+
+            // Play the previous song
+            sessionRepository.setCurrentSong(sessionId, prev)
+            _currentSong.value = prev
+            _playbackPositionMs.value = 0L
+
+            val result = when (prev.source) {
+                SongSource.SPOTIFY -> spotifyRepository.startPlayback(prev.spotifyUri, 0L)
+                SongSource.YOUTUBE -> {
+                    _events.emit(HostEvent.PlayYouTube(prev.youtubeVideoId))
+                    Result.success(Unit)
+                }
+                SongSource.LOCAL -> {
+                    _events.emit(HostEvent.PlayLocal(prev.localFilePath))
                     Result.success(Unit)
                 }
             }
@@ -202,12 +274,12 @@ class HostViewModel @Inject constructor(
 
     fun endSession() {
         viewModelScope.launch {
-            // Stop current playback
             _currentSong.value?.let { song ->
                 if (song.source == SongSource.SPOTIFY) {
                     spotifyRepository.pausePlayback()
                 }
             }
+            spotifyRepository.activeHostSessionId = null
             sessionRepository.endSession(sessionId)
                 .onSuccess { _events.emit(HostEvent.SessionEnded) }
                 .onFailure { e -> _events.emit(HostEvent.ShowError("Session beenden fehlgeschlagen: ${e.message}")) }

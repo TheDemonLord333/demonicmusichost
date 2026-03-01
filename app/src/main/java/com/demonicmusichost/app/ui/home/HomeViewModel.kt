@@ -1,6 +1,5 @@
 package com.demonicmusichost.app.ui.home
 
-import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.demonicmusichost.app.data.model.Session
@@ -46,14 +45,30 @@ class HomeViewModel @Inject constructor(
     private val _spotifyDisplayName = MutableStateFlow<String?>(null)
     val spotifyDisplayName: StateFlow<String?> = _spotifyDisplayName.asStateFlow()
 
+    /** Non-null when there is a persisted active host session the user can return to. */
+    private val _activeHostSessionId = MutableStateFlow<String?>(null)
+    val activeHostSessionId: StateFlow<String?> = _activeHostSessionId.asStateFlow()
+
     init {
         checkSpotifyAuth()
+        checkActiveHostSession()
     }
 
     fun checkSpotifyAuth() {
         _isSpotifyAuthenticated.value = spotifyRepository.isAuthenticated()
         _isSpotifyPremium.value = spotifyRepository.isPremium
         _spotifyDisplayName.value = spotifyRepository.displayName
+    }
+
+    private fun checkActiveHostSession() {
+        val sessionId = spotifyRepository.activeHostSessionId ?: return
+        viewModelScope.launch {
+            if (sessionRepository.isSessionActive(sessionId)) {
+                _activeHostSessionId.value = sessionId
+            } else {
+                spotifyRepository.activeHostSessionId = null
+            }
+        }
     }
 
     fun onSpotifyAuthSuccess(accessToken: String, expiresIn: Int) {
@@ -90,6 +105,8 @@ class HomeViewModel @Inject constructor(
             )
             sessionRepository.createSession(host)
                 .onSuccess { session ->
+                    spotifyRepository.activeHostSessionId = session.sessionId
+                    _activeHostSessionId.value = session.sessionId
                     _events.emit(HomeEvent.NavigateToHost(session))
                 }
                 .onFailure { e ->
@@ -123,6 +140,19 @@ class HomeViewModel @Inject constructor(
                     _events.emit(HomeEvent.ShowError(e.message ?: "Session konnte nicht gefunden werden"))
                 }
             _isLoading.value = false
+        }
+    }
+
+    fun returnToActiveSession() {
+        val sessionId = _activeHostSessionId.value ?: return
+        viewModelScope.launch {
+            if (sessionRepository.isSessionActive(sessionId)) {
+                _events.emit(HomeEvent.NavigateToHost(Session(sessionId = sessionId)))
+            } else {
+                spotifyRepository.activeHostSessionId = null
+                _activeHostSessionId.value = null
+                _events.emit(HomeEvent.ShowError("Die Session ist nicht mehr aktiv"))
+            }
         }
     }
 

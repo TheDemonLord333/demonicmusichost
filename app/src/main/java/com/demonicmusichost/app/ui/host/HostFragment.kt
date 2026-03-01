@@ -63,7 +63,6 @@ class HostFragment : Fragment() {
             adapter = queueAdapter
         }
 
-        // Drag-to-reorder
         val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
             ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
         ) {
@@ -77,6 +76,7 @@ class HostFragment : Fragment() {
     }
 
     private fun setupControls() {
+        binding.btnPrevious.setOnClickListener { viewModel.playPrevious() }
         binding.btnPlayPause.setOnClickListener { viewModel.playPause() }
         binding.btnSkip.setOnClickListener { viewModel.skipSong() }
 
@@ -126,8 +126,11 @@ class HostFragment : Fragment() {
     private fun observeViewModel() {
         viewLifecycleOwner.lifecycleScope.launch {
             viewModel.currentSong.collect { song ->
+                val hasSong = song != null
+                binding.layoutNowPlaying.isVisible = hasSong
+                binding.layoutNoSong.isVisible = !hasSong
+
                 if (song != null) {
-                    binding.layoutNowPlaying.isVisible = true
                     binding.tvSongTitle.text = song.title
                     binding.tvSongArtist.text = song.artist
                     binding.tvDuration.text = song.durationMs.toTimeString()
@@ -143,8 +146,6 @@ class HostFragment : Fragment() {
                             .into(binding.ivAlbumArt)
                     }
                     binding.webViewYouTube.isVisible = song.source == SongSource.YOUTUBE
-                } else {
-                    binding.layoutNowPlaying.isVisible = false
                 }
             }
         }
@@ -171,9 +172,9 @@ class HostFragment : Fragment() {
                     binding.tvSessionCode.text = it.sessionCode
                     binding.tvGuestCount.text = "${it.getGuestCount()} Gäste"
                     binding.btnToggleGuestAdd.text = if (it.guestsCanAddSongs) {
-                        "Gäste: Hinzufügen AN"
+                        "Gäste: Songs hinzufügen AN"
                     } else {
-                        "Gäste: Hinzufügen AUS"
+                        "Gäste: Songs hinzufügen AUS"
                     }
                 }
             }

@@ -238,6 +238,15 @@ class SessionRepository @Inject constructor(
         awaitClose { ref.removeEventListener(listener) }
     }
 
+    suspend fun isSessionActive(sessionId: String): Boolean {
+        return try {
+            val snapshot = getSessionSnapshot(sessionId)
+            snapshot?.child("isActive")?.getValue(Boolean::class.java) ?: false
+        } catch (e: Exception) {
+            false
+        }
+    }
+
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
     private suspend fun resolveSessionCode(code: String): String? {

@@ -104,105 +104,162 @@
                 android:visibility="gone"
                 tools:visibility="visible">
 
-                <androidx.constraintlayout.widget.ConstraintLayout
+                <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:orientation="vertical"
                     android:padding="16dp">
 
-                    <ImageView
-                        android:id="@+id/ivAlbumArt"
-                        android:layout_width="72dp"
-                        android:layout_height="72dp"
-                        android:scaleType="centerCrop"
-                        android:src="@drawable/ic_music_note"
-                        android:background="@drawable/bg_album_art"
-                        app:layout_constraintStart_toStartOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintBottom_toBottomOf="parent" />
-
+                    <!-- Song info row: album art + title/artist -->
                     <LinearLayout
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:orientation="vertical"
-                        android:layout_marginStart="14dp"
-                        app:layout_constraintStart_toEndOf="@id/ivAlbumArt"
-                        app:layout_constraintEnd_toStartOf="@id/layoutControls"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintBottom_toBottomOf="parent">
-
-                        <com.google.android.material.chip.Chip
-                            android:id="@+id/chipSource"
-                            android:layout_width="wrap_content"
-                            android:layout_height="24dp"
-                            android:textSize="10sp"
-                            android:textColor="@color/text_primary"
-                            app:chipBackgroundColor="@color/spotify_green"
-                            app:chipMinHeight="24dp"
-                            tools:text="Spotify" />
-
-                        <TextView
-                            android:id="@+id/tvSongTitle"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textColor="@color/text_primary"
-                            android:textSize="16sp"
-                            android:fontFamily="sans-serif-black"
-                            android:maxLines="1"
-                            android:ellipsize="end"
-                            android:layout_marginTop="4dp"
-                            tools:text="Song Titel" />
-
-                        <TextView
-                            android:id="@+id/tvSongArtist"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textColor="@color/text_secondary"
-                            android:textSize="13sp"
-                            android:maxLines="1"
-                            android:ellipsize="end"
-                            tools:text="Künstler" />
-
-                        <TextView
-                            android:id="@+id/tvDuration"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:textColor="@color/text_tertiary"
-                            android:textSize="11sp"
-                            tools:text="3:45" />
-                    </LinearLayout>
-
-                    <!-- Playback Controls -->
-                    <LinearLayout
-                        android:id="@+id/layoutControls"
-                        android:layout_width="wrap_content"
+                        android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="horizontal"
-                        android:gravity="center_vertical"
-                        app:layout_constraintEnd_toEndOf="parent"
-                        app:layout_constraintTop_toTopOf="parent"
-                        app:layout_constraintBottom_toBottomOf="parent">
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:id="@+id/ivAlbumArt"
+                            android:layout_width="64dp"
+                            android:layout_height="64dp"
+                            android:scaleType="centerCrop"
+                            android:src="@drawable/ic_music_note"
+                            android:background="@drawable/bg_album_art" />
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical"
+                            android:layout_marginStart="14dp">
+
+                            <com.google.android.material.chip.Chip
+                                android:id="@+id/chipSource"
+                                android:layout_width="wrap_content"
+                                android:layout_height="24dp"
+                                android:textSize="10sp"
+                                android:textColor="@color/text_primary"
+                                app:chipBackgroundColor="@color/spotify_green"
+                                app:chipMinHeight="24dp"
+                                tools:text="Spotify" />
+
+                            <TextView
+                                android:id="@+id/tvSongTitle"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/text_primary"
+                                android:textSize="16sp"
+                                android:fontFamily="sans-serif-black"
+                                android:maxLines="1"
+                                android:ellipsize="end"
+                                android:layout_marginTop="4dp"
+                                tools:text="Song Titel" />
+
+                            <TextView
+                                android:id="@+id/tvSongArtist"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="13sp"
+                                android:maxLines="1"
+                                android:ellipsize="end"
+                                tools:text="Künstler" />
+
+                            <TextView
+                                android:id="@+id/tvDuration"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:textColor="@color/text_tertiary"
+                                android:textSize="11sp"
+                                tools:text="3:45" />
+                        </LinearLayout>
+                    </LinearLayout>
+
+                    <!-- Playback Controls Row: Previous · Play/Pause · Skip -->
+                    <LinearLayout
+                        android:id="@+id/layoutControls"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center"
+                        android:layout_marginTop="16dp">
+
+                        <ImageButton
+                            android:id="@+id/btnPrevious"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
+                            android:src="@drawable/ic_skip_previous"
+                            android:background="?attr/selectableItemBackgroundBorderless"
+                            android:contentDescription="Vorheriger Song"
+                            app:tint="@color/text_secondary" />
 
                         <ImageButton
                             android:id="@+id/btnPlayPause"
-                            android:layout_width="48dp"
-                            android:layout_height="48dp"
+                            android:layout_width="56dp"
+                            android:layout_height="56dp"
                             android:src="@drawable/ic_play"
                             android:background="@drawable/bg_play_button"
                             android:contentDescription="Play/Pause"
+                            android:layout_marginHorizontal="20dp"
                             app:tint="@color/background_dark" />
 
                         <ImageButton
                             android:id="@+id/btnSkip"
-                            android:layout_width="40dp"
-                            android:layout_height="40dp"
+                            android:layout_width="44dp"
+                            android:layout_height="44dp"
                             android:src="@drawable/ic_skip_next"
                             android:background="?attr/selectableItemBackgroundBorderless"
-                            android:contentDescription="Skip"
-                            android:layout_marginStart="8dp"
+                            android:contentDescription="Nächster Song"
                             app:tint="@color/text_secondary" />
+
                     </LinearLayout>
 
-                </androidx.constraintlayout.widget.ConstraintLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Leerer Zustand wenn kein Song aktiv -->
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/layoutNoSong"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="16dp"
+                android:layout_marginTop="16dp"
+                app:cardBackgroundColor="@color/surface_dark"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="4dp"
+                android:visibility="visible">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="24dp">
+
+                    <ImageView
+                        android:layout_width="48dp"
+                        android:layout_height="48dp"
+                        android:src="@drawable/ic_music_note"
+                        app:tint="@color/text_tertiary" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Kein Song läuft"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="15sp"
+                        android:layout_marginTop="8dp"
+                        android:fontFamily="sans-serif-black" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Füge Songs zur Warteschlange hinzu und drücke Play"
+                        android:textColor="@color/text_tertiary"
+                        android:textSize="13sp"
+                        android:gravity="center"
+                        android:layout_marginTop="4dp" />
+
+                </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
             <!-- YouTube WebView (hidden unless YouTube song) -->
@@ -218,33 +275,33 @@
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
+                android:orientation="vertical"
                 android:paddingHorizontal="16dp"
-                android:paddingTop="16dp"
-                android:gravity="center">
+                android:paddingTop="16dp">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnAddToQueue"
-                    android:layout_width="0dp"
-                    android:layout_height="44dp"
-                    android:layout_weight="1"
-                    android:text="+ Song hinzufügen"
-                    android:textSize="13sp"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:text="+ Song zur Warteschlange hinzufügen"
+                    android:textSize="14sp"
                     app:backgroundTint="@color/discord_blurple"
-                    app:cornerRadius="22dp" />
+                    app:cornerRadius="24dp"
+                    app:icon="@drawable/ic_add"
+                    app:iconTint="@color/text_primary" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnToggleGuestAdd"
-                    android:layout_width="0dp"
+                    android:layout_width="match_parent"
                     android:layout_height="44dp"
-                    android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:text="Gäste: Hinzufügen AN"
-                    android:textSize="11sp"
+                    android:layout_marginTop="8dp"
+                    android:text="Gäste: Songs hinzufügen AN"
+                    android:textSize="13sp"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     app:strokeColor="@color/discord_blurple"
                     android:textColor="@color/discord_blurple"
                     app:cornerRadius="22dp" />
+
             </LinearLayout>
 
             <!-- Queue Section -->
