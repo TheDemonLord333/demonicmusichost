@@ -5,7 +5,8 @@ plugins {
     id("com.google.gms.google-services")
     id("androidx.navigation.safeargs.kotlin")
     id("kotlin-parcelize")
-    id("kotlin-kapt")
+    id("kotlin-kapt")        // kept for Glide (no KSP processor available)
+    id("com.google.devtools.ksp") // used for Hilt + Room (Kotlin 2.x compatible)
 }
 
 // Load API keys from local.properties (never committed to git)
@@ -92,9 +93,9 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
 
-    // Hilt Dependency Injection
+    // Hilt Dependency Injection (compiler via KSP – avoids Kotlin 2.x metadata errors with kapt)
     implementation("com.google.dagger:hilt-android:2.51.1")
-    kapt("com.google.dagger:hilt-android-compiler:2.51.1")
+    ksp("com.google.dagger:hilt-android-compiler:2.51.1")
     implementation("androidx.hilt:hilt-navigation-fragment:1.1.0")
 
     // Firebase (versions managed by BOM)
@@ -143,10 +144,10 @@ dependencies {
     // YouTube in-app player (IFrame API wrapper, has onVideoEnded callback)
     implementation("com.pierfrancescosoffritti.androidyoutubeplayer:core:12.1.0")
 
-    // Room (local cache)
+    // Room (local cache, compiler via KSP)
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
-    kapt("androidx.room:room-compiler:2.6.1")
+    ksp("androidx.room:room-compiler:2.6.1")
 
     // Preferences
     implementation("androidx.preference:preference-ktx:1.2.1")
@@ -157,6 +158,9 @@ dependencies {
     androidTestImplementation("androidx.test.espresso:espresso-core:3.5.1")
 }
 
+// kapt is kept only for Glide's annotation processor (Glide has no KSP processor).
+// Hilt and Room use KSP (see ksp(...) dependencies above) which works correctly
+// with the Kotlin 2.x K2 compiler, avoiding the "unsupported metadata version" error.
 kapt {
     correctErrorTypes = true
 }
