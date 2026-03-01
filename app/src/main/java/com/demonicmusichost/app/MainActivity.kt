@@ -1,6 +1,7 @@
 package com.demonicmusichost.app
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.navigation.NavController
@@ -44,9 +45,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleSpotifyCallback(intent: Intent) {
-        val response = AuthorizationClient.getResponse(RESULT_OK, intent)
-        if (response.type != AuthorizationResponse.Type.EMPTY) {
+        if (intent.action == Intent.ACTION_VIEW) {
+            // Chrome Custom Tab redirect: token is in the URI fragment
+            // e.g. demonicmusichost://callback#access_token=TOKEN&token_type=Bearer&expires_in=3600
+            val fragment = intent.data?.fragment ?: return
+            val fragmentUri = Uri.parse("?$fragment")
+            val accessToken = fragmentUri.getQueryParameter("access_token") ?: return
+            val response = AuthorizationResponse.Builder(AuthorizationResponse.Type.TOKEN)
+                .setAccessToken(accessToken)
+                .build()
             SpotifyAuthBus.emit(response)
+        } else {
+            // Fallback: result intent from LoginActivity (has EXTRA_RESPONSE parcelable)
+            val response = AuthorizationClient.getResponse(RESULT_OK, intent)
+            if (response.type != AuthorizationResponse.Type.EMPTY) {
+                SpotifyAuthBus.emit(response)
+            }
         }
     }
 
