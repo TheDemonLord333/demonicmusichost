@@ -8,8 +8,7 @@ import androidx.navigation.NavController
 import androidx.navigation.fragment.NavHostFragment
 import com.demonicmusichost.app.databinding.ActivityMainBinding
 import com.demonicmusichost.app.util.SpotifyAuthBus
-import com.spotify.sdk.android.auth.AuthorizationClient
-import com.spotify.sdk.android.auth.AuthorizationResponse
+import com.demonicmusichost.app.util.SpotifyAuthResult
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -45,23 +44,14 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleSpotifyCallback(intent: Intent) {
-        if (intent.action == Intent.ACTION_VIEW) {
-            // Chrome Custom Tab redirect: token is in the URI fragment
-            // e.g. demonicmusichost://callback#access_token=TOKEN&token_type=Bearer&expires_in=3600
-            val fragment = intent.data?.fragment ?: return
-            val fragmentUri = Uri.parse("?$fragment")
-            val accessToken = fragmentUri.getQueryParameter("access_token") ?: return
-            val response = AuthorizationResponse.Builder(AuthorizationResponse.Type.TOKEN)
-                .setAccessToken(accessToken)
-                .build()
-            SpotifyAuthBus.emit(response)
-        } else {
-            // Fallback: result intent from LoginActivity (has EXTRA_RESPONSE parcelable)
-            val response = AuthorizationClient.getResponse(RESULT_OK, intent)
-            if (response.type != AuthorizationResponse.Type.EMPTY) {
-                SpotifyAuthBus.emit(response)
-            }
-        }
+        if (intent.action != Intent.ACTION_VIEW) return
+        // Chrome Custom Tab redirect delivers the token in the URI fragment:
+        // demonicmusichost://callback#access_token=TOKEN&token_type=Bearer&expires_in=3600
+        val fragment = intent.data?.fragment ?: return
+        val fragmentUri = Uri.parse("?$fragment")
+        val accessToken = fragmentUri.getQueryParameter("access_token") ?: return
+        val expiresIn = fragmentUri.getQueryParameter("expires_in")?.toIntOrNull() ?: 3600
+        SpotifyAuthBus.emit(SpotifyAuthResult.Token(accessToken, expiresIn))
     }
 
     override fun onSupportNavigateUp(): Boolean {

@@ -14,6 +14,7 @@ import androidx.navigation.fragment.findNavController
 import com.demonicmusichost.app.R
 import com.demonicmusichost.app.databinding.FragmentHomeBinding
 import com.demonicmusichost.app.util.SpotifyAuthBus
+import com.demonicmusichost.app.util.SpotifyAuthResult
 import com.demonicmusichost.app.util.hide
 import com.demonicmusichost.app.util.show
 import com.demonicmusichost.app.util.showSnackbar
@@ -144,17 +145,16 @@ class HomeFragment : Fragment() {
         // singleTask, which causes spotifyAuthLauncher to always receive
         // RESULT_CANCELED immediately (startActivityForResult cross-task limitation).
         viewLifecycleOwner.lifecycleScope.launch {
-            SpotifyAuthBus.events.collect { response ->
-                when (response.type) {
-                    AuthorizationResponse.Type.TOKEN -> {
-                        viewModel.onSpotifyAuthSuccess(response.accessToken, response.expiresIn)
+            SpotifyAuthBus.events.collect { result ->
+                when (result) {
+                    is SpotifyAuthResult.Token -> {
+                        viewModel.onSpotifyAuthSuccess(result.accessToken, result.expiresIn)
                     }
-                    AuthorizationResponse.Type.ERROR -> {
+                    is SpotifyAuthResult.Error -> {
                         binding.root.showSnackbar(
-                            "Spotify-Anmeldung fehlgeschlagen: ${response.error}"
+                            "Spotify-Anmeldung fehlgeschlagen: ${result.message}"
                         )
                     }
-                    else -> Unit
                 }
             }
         }
