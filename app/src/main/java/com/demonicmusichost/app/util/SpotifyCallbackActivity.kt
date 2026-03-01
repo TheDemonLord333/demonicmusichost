@@ -15,8 +15,14 @@ class SpotifyCallbackActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         val response = AuthorizationClient.getResponse(Activity.RESULT_OK, intent)
-        // Broadcast the response so the ViewModel / fragment can pick it up
-        SpotifyAuthBus.emit(response)
+        val result = when (response.type) {
+            AuthorizationResponse.Type.TOKEN ->
+                SpotifyAuthResult.Token(response.accessToken, response.expiresIn)
+            AuthorizationResponse.Type.ERROR ->
+                SpotifyAuthResult.Error(response.error ?: "Unknown error")
+            else -> null
+        }
+        if (result != null) SpotifyAuthBus.emit(result)
         finish()
     }
 }
