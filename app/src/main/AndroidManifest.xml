@@ -72,6 +72,13 @@
             android:name="com.spotify.sdk.android.auth.LoginActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- Transparent trampoline that starts LoginActivity from a non-singleTask context
+             so ActivityResultLauncher receives RESULT_OK reliably. -->
+        <activity
+            android:name="com.demonicmusichost.app.util.SpotifyAuthTrampoline"
+            android:exported="false"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- Spotify Callback URI - handled by LoginActivity via manifestPlaceholders -->
         <!-- SpotifyCallbackActivity intentionally has no intent-filter; LoginActivity
              (configured via redirectSchemeName/redirectHostName manifestPlaceholders)

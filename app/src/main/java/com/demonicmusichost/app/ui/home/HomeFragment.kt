@@ -1,11 +1,10 @@
 package com.demonicmusichost.app.ui.home
 
-import android.app.Activity
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -15,11 +14,10 @@ import com.demonicmusichost.app.R
 import com.demonicmusichost.app.databinding.FragmentHomeBinding
 import com.demonicmusichost.app.util.SpotifyAuthBus
 import com.demonicmusichost.app.util.SpotifyAuthResult
+import com.demonicmusichost.app.util.SpotifyAuthTrampoline
 import com.demonicmusichost.app.util.hide
 import com.demonicmusichost.app.util.show
 import com.demonicmusichost.app.util.showSnackbar
-import com.spotify.sdk.android.auth.AuthorizationClient
-import com.spotify.sdk.android.auth.AuthorizationResponse
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -30,23 +28,6 @@ class HomeFragment : Fragment() {
     private val binding get() = _binding!!
 
     private val viewModel: HomeViewModel by viewModels()
-
-    private val spotifyAuthLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
-            val response = AuthorizationClient.getResponse(result.resultCode, result.data)
-            when (response.type) {
-                AuthorizationResponse.Type.TOKEN -> {
-                    viewModel.onSpotifyAuthSuccess(response.accessToken, response.expiresIn)
-                }
-                AuthorizationResponse.Type.ERROR -> {
-                    binding.root.showSnackbar("Spotify-Anmeldung fehlgeschlagen: ${response.error}")
-                }
-                else -> Unit
-            }
-        }
-    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -139,11 +120,9 @@ class HomeFragment : Fragment() {
             }
         }
 
-        // MainActivity.onNewIntent() receives the Spotify OAuth redirect
-        // (demonicmusichost://callback) and emits the parsed response here.
-        // This is the authoritative result path because LoginActivity is
-        // singleTask, which causes spotifyAuthLauncher to always receive
-        // RESULT_CANCELED immediately (startActivityForResult cross-task limitation).
+        // SpotifyAuthTrampoline starts LoginActivity in a non-singleTask context and
+        // emits the result here, bypassing the RESULT_CANCELED issue that occurs when
+        // MainActivity (singleTask) calls startActivityForResult directly.
         viewLifecycleOwner.lifecycleScope.launch {
             SpotifyAuthBus.events.collect { result ->
                 when (result) {
@@ -162,8 +141,9 @@ class HomeFragment : Fragment() {
 
     private fun launchSpotifyAuth() {
         val request = viewModel.getSpotifyAuthRequest()
-        val intent = AuthorizationClient.createLoginActivityIntent(requireActivity(), request)
-        spotifyAuthLauncher.launch(intent)
+        val intent = Intent(requireContext(), SpotifyAuthTrampoline::class.java)
+            .putExtra(SpotifyAuthTrampoline.EXTRA_REQUEST, request)
+        startActivity(intent)
     }
 
     override fun onDestroyView() {
