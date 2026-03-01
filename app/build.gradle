@@ -8,6 +8,17 @@ plugins {
     id("kotlin-kapt")
 }
 
+// Load API keys from local.properties (never committed to git)
+def localProps = new Properties()
+def localPropsFile = new File(rootProject.projectDir, "local.properties")
+if (localPropsFile.exists()) {
+    def fis = new FileInputStream(localPropsFile)
+    try { localProps.load(fis) } finally { fis.close() }
+}
+def youtubeApiKey      = localProps.getProperty("YOUTUBE_API_KEY", "")
+def spotifyClientId    = localProps.getProperty("SPOTIFY_CLIENT_ID", "")
+def spotifyRedirectUri = localProps.getProperty("SPOTIFY_REDIRECT_URI", "demonicmusichost://callback")
+
 android {
     namespace = "com.demonicmusichost.app"
     compileSdk = 34
@@ -21,10 +32,10 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        // Add your API keys here
-        buildConfigField("String", "YOUTUBE_API_KEY", "\"YOUR_YOUTUBE_API_KEY\"")
-        buildConfigField("String", "SPOTIFY_CLIENT_ID", "\"YOUR_SPOTIFY_CLIENT_ID\"")
-        buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"demonicmusichost://callback\"")
+        // API keys – set these in local.properties (never commit real keys to git)
+        buildConfigField("String", "YOUTUBE_API_KEY",      "\"${youtubeApiKey}\"")
+        buildConfigField("String", "SPOTIFY_CLIENT_ID",    "\"${spotifyClientId}\"")
+        buildConfigField("String", "SPOTIFY_REDIRECT_URI", "\"${spotifyRedirectUri}\"")
 
         // Spotify redirect URI is handled by MainActivity (singleTop + intent-filter).
         // The SDK's LoginActivity manifest requires these placeholders to exist or the

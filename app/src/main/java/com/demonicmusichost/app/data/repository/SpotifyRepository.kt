@@ -40,6 +40,7 @@ class SpotifyRepository @Inject constructor(
         private const val KEY_USER_ID = "user_id"
         private const val KEY_DISPLAY_NAME = "display_name"
         private const val KEY_IS_PREMIUM = "is_premium"
+        private const val KEY_ACTIVE_HOST_SESSION_ID = "active_host_session_id"
     }
 
     private val prefs: SharedPreferences =
@@ -64,6 +65,13 @@ class SpotifyRepository @Inject constructor(
     var isPremium: Boolean
         get() = prefs.getBoolean(KEY_IS_PREMIUM, false)
         set(value) = prefs.edit().putBoolean(KEY_IS_PREMIUM, value).apply()
+
+    var activeHostSessionId: String?
+        get() = prefs.getString(KEY_ACTIVE_HOST_SESSION_ID, null)
+        set(value) {
+            if (value == null) prefs.edit().remove(KEY_ACTIVE_HOST_SESSION_ID).apply()
+            else prefs.edit().putString(KEY_ACTIVE_HOST_SESSION_ID, value).apply()
+        }
 
     fun isAuthenticated(): Boolean {
         return accessToken != null && System.currentTimeMillis() < tokenExpiry
@@ -170,5 +178,9 @@ class SpotifyRepository @Inject constructor(
 
     fun logout() {
         prefs.edit().clear().apply()
+    }
+
+    fun clearActiveSession() {
+        activeHostSessionId = null
     }
 }
