@@ -42,6 +42,16 @@
         <item name="bottomSheetDialogTheme">@style/ThemeOverlay.DemonicMusicHost.BottomSheet</item>
     </style>
 
+    <!-- Transparent trampoline theme for activities that must be AppCompat-compatible
+         but visually invisible (e.g. SpotifyAuthTrampoline). -->
+    <style name="Theme.DemonicMusicHost.Transparent" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowContentOverlay">@null</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+    </style>
+
     <!-- Splash Screen theme (shows background before main renders) -->
     <style name="Theme.DemonicMusicHost.Splash" parent="Theme.DemonicMusicHost">
         <item name="android:windowSplashScreenBackground">@color/background_dark</item>
