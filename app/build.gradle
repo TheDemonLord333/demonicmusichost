@@ -94,8 +94,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-service:2.7.0")
 
     // Hilt Dependency Injection (compiler via KSP – avoids Kotlin 2.x metadata errors with kapt)
-    implementation("com.google.dagger:hilt-android:2.52")
-    ksp("com.google.dagger:hilt-android-compiler:2.52")
+    implementation("com.google.dagger:hilt-android:2.55")
+    ksp("com.google.dagger:hilt-android-compiler:2.55")
     implementation("androidx.hilt:hilt-navigation-fragment:1.1.0")
 
     // Firebase (versions managed by BOM)
