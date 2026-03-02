@@ -8,6 +8,7 @@ import android.net.Uri
 import com.demonicmusichost.app.BuildConfig
 import com.demonicmusichost.app.data.model.SearchResult
 import com.demonicmusichost.app.data.network.SpotifyApiService
+import com.demonicmusichost.app.data.network.SpotifyPlayRequest
 import com.demonicmusichost.app.data.network.SpotifyUserResponse
 import com.demonicmusichost.app.service.PlaybackEventBus
 import com.spotify.sdk.android.auth.AuthorizationRequest
@@ -150,22 +151,62 @@ class SpotifyRepository @Inject constructor(
     }
 
     /**
-     * Opens the native Spotify app to play the given track URI (e.g. "spotify:track:ID"),
-     * then starts background polling to detect when the track ends so we can auto-advance
-     * the in-app queue.
+     * Starts playing the given Spotify URI.
+     *
+     * Strategy:
+     * 1. Try the Spotify Web API first (PUT /me/player/play with URI).
+     *    If Spotify is already running in the background this succeeds silently –
+     *    the user never leaves DemonicMusicHost.
+     * 2. If the Web API call fails (no active device), fall back to an Intent
+     *    deep-link so Spotify opens and becomes the active device.  After that
+     *    first launch, all subsequent plays and pauses work via the Web API.
      */
-    fun startPlayback(uri: String, positionMs: Long = 0L): Result<Unit> {
+    suspend fun startPlayback(uri: String, positionMs: Long = 0L): Result<Unit> {
+        currentPlayingUri = uri
+        wasPlayingLastPoll = false
+
+        val token = accessToken
+        if (token != null) {
+            try {
+                spotifyApiService.startPlayback(
+                    "Bearer $token",
+                    SpotifyPlayRequest(
+                        uris = listOf(uri),
+                        positionMs = if (positionMs > 0L) positionMs else null
+                    )
+                )
+                startPolling()
+                return Result.success(Unit)   // ✓ Web API worked — no foreground switch
+            } catch (_: Exception) {
+                // No active device or token error → fall back to Intent
+            }
+        }
+
         return try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
             }
             context.startActivity(intent)
-            currentPlayingUri = uri
-            wasPlayingLastPoll = false
             startPolling()
             Result.success(Unit)
         } catch (e: ActivityNotFoundException) {
             Result.failure(Exception("Spotify ist nicht installiert"))
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Resumes the currently paused Spotify track via the Web API (no app switch).
+     * Sending an empty play request body tells Spotify to resume the active context.
+     */
+    suspend fun resumeCurrentPlayback(): Result<Unit> {
+        return try {
+            val token = accessToken ?: return Result.failure(Exception("Not authenticated"))
+            // SpotifyPlayRequest() → Gson serialises to {} → Spotify resumes current track
+            spotifyApiService.startPlayback("Bearer $token", SpotifyPlayRequest())
+            startPolling()
+            Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
         }

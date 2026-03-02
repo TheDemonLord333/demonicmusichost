@@ -131,11 +131,15 @@ class HostFragment : Fragment() {
                         viewModel.onYouTubeSongEnded()
                         binding.youtubePlayerView.isVisible = false
                     }
-                    com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerState.PLAYING -> {
-                        // Keep ViewModel in sync with actual player state
-                    }
                     else -> Unit
                 }
+            }
+
+            override fun onError(
+                youTubePlayer: YouTubePlayer,
+                error: com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerError
+            ) {
+                binding.root.showSnackbar("YouTube-Video nicht verfügbar (${error.name})")
             }
         })
     }
@@ -248,6 +252,8 @@ class HostFragment : Fragment() {
                             }
                         )
                     }
+                    HostEvent.PauseYouTube -> youTubePlayer?.pause()
+                    HostEvent.ResumeYouTube -> youTubePlayer?.play()
                 }
             }
         }

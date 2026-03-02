@@ -30,6 +30,8 @@ sealed class HostEvent {
     data class PlayLocal(val filePath: String) : HostEvent()
     object PauseLocal : HostEvent()
     object ResumeLocal : HostEvent()
+    object PauseYouTube : HostEvent()
+    object ResumeYouTube : HostEvent()
 }
 
 @HiltViewModel
@@ -128,8 +130,7 @@ class HostViewModel @Inject constructor(
                 Result.success(Unit)
             }
             SongSource.YOUTUBE -> {
-                // YouTube plays in the external app; can't pause programmatically
-                _events.emit(HostEvent.ShowMessage("Wiedergabe in YouTube-App pausieren"))
+                _events.emit(HostEvent.PauseYouTube)
                 Result.success(Unit)
             }
         }
@@ -146,9 +147,9 @@ class HostViewModel @Inject constructor(
 
     private suspend fun resumePlayback(song: Song) {
         val result = when (song.source) {
-            SongSource.SPOTIFY -> spotifyRepository.startPlayback(song.spotifyUri)
+            SongSource.SPOTIFY -> spotifyRepository.resumeCurrentPlayback()
             SongSource.YOUTUBE -> {
-                _events.emit(HostEvent.PlayYouTube(song.youtubeVideoId))
+                _events.emit(HostEvent.ResumeYouTube)
                 Result.success(Unit)
             }
             SongSource.LOCAL -> {
