@@ -32,6 +32,8 @@ sealed class HostEvent {
     object ResumeLocal : HostEvent()
     object PauseYouTube : HostEvent()
     object ResumeYouTube : HostEvent()
+    object StopLocal : HostEvent()
+    object StopYouTube : HostEvent()
 }
 
 @HiltViewModel
@@ -176,10 +178,20 @@ class HostViewModel @Inject constructor(
                 return@launch
             }
 
-            // Push current song to history before advancing
-            _currentSong.value?.let { previousSongs.addLast(it) }
-
+            // Stop the current source before switching to a different one
+            val currentSong = _currentSong.value
             val nextSong = queue.first()
+            if (currentSong != null && currentSong.source != nextSong.source) {
+                when (currentSong.source) {
+                    SongSource.SPOTIFY -> spotifyRepository.pausePlayback()
+                    SongSource.YOUTUBE -> _events.emit(HostEvent.StopYouTube)
+                    SongSource.LOCAL -> _events.emit(HostEvent.StopLocal)
+                }
+            }
+
+            // Push current song to history before advancing
+            currentSong?.let { previousSongs.addLast(it) }
+
             sessionRepository.setCurrentSong(sessionId, nextSong)
             sessionRepository.removeFromQueue(sessionId, nextSong.id)
             _currentSong.value = nextSong

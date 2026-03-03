@@ -258,6 +258,17 @@ class HostFragment : Fragment() {
                     }
                     HostEvent.PauseYouTube -> youTubePlayer?.pause()
                     HostEvent.ResumeYouTube -> youTubePlayer?.play()
+                    HostEvent.StopYouTube -> {
+                        youTubePlayer?.pause()
+                        binding.youtubePlayerView.isVisible = false
+                    }
+                    HostEvent.StopLocal -> {
+                        requireContext().startService(
+                            Intent(requireContext(), MusicService::class.java).apply {
+                                action = MusicService.ACTION_STOP
+                            }
+                        )
+                    }
                 }
             }
         }
