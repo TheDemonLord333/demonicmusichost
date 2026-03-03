@@ -30,10 +30,21 @@ interface SpotifyApiService {
         @Header("Authorization") authorization: String
     ): SpotifyPlaybackState?
 
+    @GET("me/player/devices")
+    suspend fun getDevices(
+        @Header("Authorization") authorization: String
+    ): SpotifyDevicesResponse
+
     @PUT("me/player/play")
     suspend fun startPlayback(
         @Header("Authorization") authorization: String,
         @Body body: SpotifyPlayRequest
+    )
+
+    @PUT("me/player")
+    suspend fun transferPlayback(
+        @Header("Authorization") authorization: String,
+        @Body body: SpotifyTransferPlaybackRequest
     )
 
     @PUT("me/player/pause")
@@ -126,4 +137,21 @@ data class SpotifyPlayRequest(
     @SerializedName("uris") val uris: List<String>? = null,
     @SerializedName("context_uri") val contextUri: String? = null,
     @SerializedName("position_ms") val positionMs: Long? = null
+)
+
+data class SpotifyTransferPlaybackRequest(
+    @SerializedName("device_ids") val deviceIds: List<String>,
+    @SerializedName("play") val play: Boolean = false
+)
+
+data class SpotifyDevicesResponse(
+    @SerializedName("devices") val devices: List<SpotifyDevice> = emptyList()
+)
+
+data class SpotifyDevice(
+    @SerializedName("id") val id: String = "",
+    @SerializedName("is_active") val isActive: Boolean = false,
+    @SerializedName("is_restricted") val isRestricted: Boolean = false,
+    @SerializedName("name") val name: String = "",
+    @SerializedName("type") val type: String = ""
 )

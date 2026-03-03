@@ -9,6 +9,7 @@ import com.demonicmusichost.app.BuildConfig
 import com.demonicmusichost.app.data.model.SearchResult
 import com.demonicmusichost.app.data.network.SpotifyApiService
 import com.demonicmusichost.app.data.network.SpotifyPlayRequest
+import com.demonicmusichost.app.data.network.SpotifyTransferPlaybackRequest
 import com.demonicmusichost.app.data.network.SpotifyUserResponse
 import com.demonicmusichost.app.service.PlaybackEventBus
 import com.spotify.sdk.android.auth.AuthorizationRequest
@@ -40,6 +41,9 @@ class SpotifyRepository @Inject constructor(
     /** URI of the track we last commanded Spotify to play. */
     private var currentPlayingUri: String? = null
     private var wasPlayingLastPoll = false
+
+    /** Device ID of the Spotify client on this phone, cached after first lookup. */
+    private var cachedDeviceId: String? = null
 
     companion object {
         const val SPOTIFY_REQUEST_CODE = 1337
@@ -151,42 +155,68 @@ class SpotifyRepository @Inject constructor(
     }
 
     /**
-     * Starts playing the given Spotify URI.
+     * Starts playing the given Spotify URI without leaving DemonicMusicHost.
      *
-     * Strategy:
-     * 1. Try the Spotify Web API first (PUT /me/player/play with URI).
-     *    If Spotify is already running in the background this succeeds silently –
-     *    the user never leaves DemonicMusicHost.
-     * 2. If the Web API call fails (no active device), fall back to an Intent
-     *    deep-link so Spotify opens and becomes the active device.  After that
-     *    first launch, all subsequent plays and pauses work via the Web API.
+     * Three-step strategy (each step only runs if the previous one fails):
+     *
+     * 1. Direct Web API play: works when Spotify already has an active device
+     *    (e.g. after the first song, or if the user opened Spotify recently).
+     *
+     * 2. Transfer + play: fetches available Spotify devices, transfers playback
+     *    to this phone's Spotify client (keeps it in the background), then plays.
+     *    This handles the case where Spotify is running but paused/inactive.
+     *
+     * 3. Intent fallback: only runs when Spotify has no device at all (i.e. the
+     *    app is not running). After this one-time launch Spotify runs in the
+     *    background and steps 1/2 will succeed for all subsequent songs.
      */
     suspend fun startPlayback(uri: String, positionMs: Long = 0L): Result<Unit> {
         currentPlayingUri = uri
         wasPlayingLastPoll = false
 
-        val token = accessToken
-        if (token != null) {
-            try {
-                spotifyApiService.startPlayback(
-                    "Bearer $token",
-                    SpotifyPlayRequest(
-                        uris = listOf(uri),
-                        positionMs = if (positionMs > 0L) positionMs else null
-                    )
-                )
-                startPolling()
-                return Result.success(Unit)   // ✓ Web API worked — no foreground switch
-            } catch (_: Exception) {
-                // No active device or token error → fall back to Intent
+        val token = accessToken ?: return fallbackToIntent(uri)
+        val playRequest = SpotifyPlayRequest(
+            uris = listOf(uri),
+            positionMs = if (positionMs > 0L) positionMs else null
+        )
+
+        // Step 1: Direct play (works when device is already active)
+        try {
+            spotifyApiService.startPlayback("Bearer $token", playRequest)
+            startPolling()
+            return Result.success(Unit)
+        } catch (_: Exception) { }
+
+        // Step 2: Find the device on this phone, transfer playback, then play
+        try {
+            val deviceId = cachedDeviceId ?: run {
+                val devices = spotifyApiService.getDevices("Bearer $token").devices
+                devices.firstOrNull { !it.isRestricted }?.id.also { cachedDeviceId = it }
             }
+            if (deviceId != null) {
+                // Transfer playback to this device (play=false keeps Spotify in background)
+                spotifyApiService.transferPlayback(
+                    "Bearer $token",
+                    SpotifyTransferPlaybackRequest(deviceIds = listOf(deviceId), play = false)
+                )
+                delay(800L) // give Spotify time to activate the device
+                spotifyApiService.startPlayback("Bearer $token", playRequest)
+                startPolling()
+                return Result.success(Unit)
+            }
+        } catch (_: Exception) {
+            cachedDeviceId = null // stale cache — clear so next call re-fetches
         }
 
+        // Step 3: No Spotify device found at all — launch Intent once to start Spotify
+        return fallbackToIntent(uri)
+    }
+
+    private fun fallbackToIntent(uri: String): Result<Unit> {
         return try {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
+            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            }
-            context.startActivity(intent)
+            })
             startPolling()
             Result.success(Unit)
         } catch (e: ActivityNotFoundException) {
@@ -316,6 +346,7 @@ class SpotifyRepository @Inject constructor(
 
     fun logout() {
         prefs.edit().clear().apply()
+        cachedDeviceId = null
     }
 
     fun clearActiveSession() {
