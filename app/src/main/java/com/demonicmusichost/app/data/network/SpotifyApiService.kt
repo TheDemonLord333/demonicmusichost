@@ -38,7 +38,8 @@ interface SpotifyApiService {
     @PUT("me/player/play")
     suspend fun startPlayback(
         @Header("Authorization") authorization: String,
-        @Body body: SpotifyPlayRequest
+        @Body body: SpotifyPlayRequest,
+        @Query("device_id") deviceId: String? = null
     )
 
     @PUT("me/player")

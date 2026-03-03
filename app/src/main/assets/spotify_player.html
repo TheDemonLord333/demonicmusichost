@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+<body>
+<script src="https://sdk.scdn.co/spotify-player.js"></script>
+<script>
+  // Tracks whether the player was active before the last state change.
+  // Used to distinguish a natural track end (paused + position reset to 0)
+  // from a user-initiated pause (paused + position > 0).
+  var wasPlaying = false;
+
+  window.onSpotifyWebPlaybackSDKReady = function() {
+    var player = new Spotify.Player({
+      name: 'DemonicMusicHost',
+      getOAuthToken: function(cb) {
+        cb(Android.getAccessToken());
+      },
+      volume: 0.8
+    });
+
+    window.spotifyPlayer = player;
+
+    // Device is ready — pass its ID to Android so the Web API can target it
+    player.addListener('ready', function(data) {
+      window.deviceId = data.device_id;
+      Android.onDeviceReady(data.device_id);
+    });
+
+    // Device went offline (network loss, app backgrounded by OS, etc.)
+    player.addListener('not_ready', function(data) {
+      Android.onDeviceNotReady(data.device_id);
+    });
+
+    // Fires on every playback state change: play, pause, seek, track end
+    player.addListener('player_state_changed', function(state) {
+      if (!state) { wasPlaying = false; return; }
+
+      // Natural track end: position resets to 0 and player pauses
+      // User pause: position stays where the user paused (> 0)
+      var naturalEnd = state.paused && state.position === 0 && wasPlaying;
+      wasPlaying = !state.paused;
+
+      if (naturalEnd) {
+        Android.onTrackEnded();
+      }
+    });
+
+    player.addListener('initialization_error', function(e) {
+      Android.onError('init_error:' + e.message);
+    });
+    player.addListener('authentication_error', function(e) {
+      Android.onError('auth_error:' + e.message);
+    });
+    player.addListener('account_error', function(e) {
+      Android.onError('account_error:' + e.message);
+    });
+
+    player.connect();
+  };
+
+  // Called from Android via evaluateJavascript()
+  function pausePlayback() {
+    if (window.spotifyPlayer) window.spotifyPlayer.pause();
+  }
+
+  function resumePlayback() {
+    if (window.spotifyPlayer) window.spotifyPlayer.resume();
+  }
+</script>
+</body>
+</html>

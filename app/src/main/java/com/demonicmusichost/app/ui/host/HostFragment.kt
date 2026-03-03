@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
 import androidx.core.view.isVisible
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -41,6 +42,9 @@ class HostFragment : Fragment() {
     /** Reference to the YouTubePlayer once it is ready. */
     private var youTubePlayer: YouTubePlayer? = null
 
+    /** Manages the hidden WebView running the Spotify Web Playback SDK. */
+    private lateinit var spotifyWebPlayer: SpotifyWebPlayer
+
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -54,6 +58,7 @@ class HostFragment : Fragment() {
         setupQueue()
         setupControls()
         setupYouTubePlayer()
+        setupSpotifyWebPlayer()
         observeViewModel()
     }
 
@@ -146,6 +151,30 @@ class HostFragment : Fragment() {
                 viewModel.skipSong()
             }
         })
+    }
+
+    private fun setupSpotifyWebPlayer() {
+        spotifyWebPlayer = SpotifyWebPlayer(requireContext())
+        spotifyWebPlayer.accessTokenProvider = { viewModel.getSpotifyAccessToken() }
+        spotifyWebPlayer.onDeviceReady = { deviceId ->
+            viewModel.setSpotifyDeviceId(deviceId)
+        }
+        spotifyWebPlayer.onDeviceNotReady = {
+            viewModel.clearSpotifyDeviceId()
+        }
+        spotifyWebPlayer.onTrackEnded = {
+            viewModel.onSpotifyTrackEnded()
+        }
+
+        // Add the WebView as INVISIBLE (not GONE) inside a 1×1dp container.
+        // It must be in the view hierarchy for audio playback to work.
+        val webView = spotifyWebPlayer.createWebView()
+        val container = FrameLayout(requireContext()).apply {
+            layoutParams = FrameLayout.LayoutParams(1, 1)
+            visibility = View.INVISIBLE
+            addView(webView)
+        }
+        (binding.root as ViewGroup).addView(container)
     }
 
     private fun observeViewModel() {
@@ -277,6 +306,7 @@ class HostFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         youTubePlayer = null
+        spotifyWebPlayer.release()
         _binding = null
     }
 }

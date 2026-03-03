@@ -42,7 +42,15 @@ class SpotifyRepository @Inject constructor(
     private var currentPlayingUri: String? = null
     private var wasPlayingLastPoll = false
 
-    /** Device ID of the Spotify client on this phone, cached after first lookup. */
+    /**
+     * Device ID of the Spotify Web Playback SDK running in our embedded WebView.
+     * Set by HostFragment when the SDK fires its `ready` event.
+     * When non-null, all play commands are targeted at this device so Spotify
+     * audio plays inside the app without ever opening the Spotify app.
+     */
+    var sdkDeviceId: String? = null
+
+    /** Device ID of the Spotify app on this phone, cached after first lookup. */
     private var cachedDeviceId: String? = null
 
     companion object {
@@ -157,18 +165,21 @@ class SpotifyRepository @Inject constructor(
     /**
      * Starts playing the given Spotify URI without leaving DemonicMusicHost.
      *
-     * Three-step strategy (each step only runs if the previous one fails):
+     * Four-step strategy (each step only runs if the previous one fails/is unavailable):
+     *
+     * 0. SDK device play: if our embedded WebView has registered a Spotify Connect
+     *    device, target it directly. No polling needed — the SDK JS fires [onTrackEnded]
+     *    via callback. This is the primary path after the WebView is ready.
      *
      * 1. Direct Web API play: works when Spotify already has an active device
-     *    (e.g. after the first song, or if the user opened Spotify recently).
+     *    (e.g. the Spotify app was recently used). Uses polling to detect track end.
      *
      * 2. Transfer + play: fetches available Spotify devices, transfers playback
-     *    to this phone's Spotify client (keeps it in the background), then plays.
-     *    This handles the case where Spotify is running but paused/inactive.
+     *    to this phone's Spotify client (keeps it in background), then plays.
      *
      * 3. Intent fallback: only runs when Spotify has no device at all (i.e. the
-     *    app is not running). After this one-time launch Spotify runs in the
-     *    background and steps 1/2 will succeed for all subsequent songs.
+     *    Spotify app is not running). After this one-time launch Spotify is in the
+     *    background and steps 1/2 succeed for subsequent songs.
      */
     suspend fun startPlayback(uri: String, positionMs: Long = 0L): Result<Unit> {
         currentPlayingUri = uri
@@ -180,21 +191,31 @@ class SpotifyRepository @Inject constructor(
             positionMs = if (positionMs > 0L) positionMs else null
         )
 
-        // Step 1: Direct play (works when device is already active)
+        // Step 0: Web Playback SDK device — best path, no polling, no app switch
+        sdkDeviceId?.let { deviceId ->
+            return try {
+                spotifyApiService.startPlayback("Bearer $token", playRequest, deviceId)
+                // SDK fires onTrackEnded via JavaScript — no polling needed
+                Result.success(Unit)
+            } catch (e: Exception) {
+                Result.failure(e)
+            }
+        }
+
+        // Step 1: Direct play (works when Spotify app device is already active)
         try {
             spotifyApiService.startPlayback("Bearer $token", playRequest)
             startPolling()
             return Result.success(Unit)
         } catch (_: Exception) { }
 
-        // Step 2: Find the device on this phone, transfer playback, then play
+        // Step 2: Find the Spotify app device, transfer playback, then play
         try {
             val deviceId = cachedDeviceId ?: run {
                 val devices = spotifyApiService.getDevices("Bearer $token").devices
                 devices.firstOrNull { !it.isRestricted }?.id.also { cachedDeviceId = it }
             }
             if (deviceId != null) {
-                // Transfer playback to this device (play=false keeps Spotify in background)
                 spotifyApiService.transferPlayback(
                     "Bearer $token",
                     SpotifyTransferPlaybackRequest(deviceIds = listOf(deviceId), play = false)
@@ -208,7 +229,7 @@ class SpotifyRepository @Inject constructor(
             cachedDeviceId = null // stale cache — clear so next call re-fetches
         }
 
-        // Step 3: No Spotify device found at all — launch Intent once to start Spotify
+        // Step 3: No Spotify device found — launch Intent once to start the Spotify app
         return fallbackToIntent(uri)
     }
 
@@ -346,6 +367,7 @@ class SpotifyRepository @Inject constructor(
 
     fun logout() {
         prefs.edit().clear().apply()
+        sdkDeviceId = null
         cachedDeviceId = null
     }
 

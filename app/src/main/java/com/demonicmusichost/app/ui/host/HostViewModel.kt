@@ -90,6 +90,24 @@ class HostViewModel @Inject constructor(
         playNextInQueue()
     }
 
+    /** Called by HostFragment when the Spotify Web Playback SDK detects a natural track end. */
+    fun onSpotifyTrackEnded() {
+        playNextInQueue()
+    }
+
+    /** Called by HostFragment when the Spotify Web Playback SDK device becomes ready. */
+    fun setSpotifyDeviceId(deviceId: String) {
+        spotifyRepository.sdkDeviceId = deviceId
+    }
+
+    /** Called by HostFragment when the SDK device goes offline. */
+    fun clearSpotifyDeviceId() {
+        spotifyRepository.sdkDeviceId = null
+    }
+
+    /** Returns the current Spotify access token for the WebView JS bridge. */
+    fun getSpotifyAccessToken(): String? = spotifyRepository.accessToken
+
     private fun observeSession() {
         viewModelScope.launch {
             sessionRepository.observeSession(sessionId)
