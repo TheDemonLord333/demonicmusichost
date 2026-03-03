@@ -214,12 +214,19 @@ class SpotifyRepository @Inject constructor(
 
     /**
      * Polls the Spotify Web API every 4 seconds to detect when the current track ends.
-     * Emits [PlaybackEventBus.notifySongEnded] when end is detected, then stops polling.
-     * After launching the Spotify app via Intent the phone is an active Spotify device,
-     * so the Web API calls succeed.
+     *
+     * Key design decisions:
+     * - wasPlayingLastPoll is reset to false here, so a fresh poll cycle always starts clean.
+     * - We do NOT pause Spotify inside this loop when a track ends. Keeping Spotify active
+     *   means the device stays reachable via Web API, so startPlayback() for the next queue
+     *   song succeeds via the Web API without opening the Spotify app.
+     * - The progressMs < 3000 guard is intentionally removed. Since pausePolling() is called
+     *   whenever the user intentionally pauses, wasPlayingLastPoll is always false during a
+     *   user pause, so "!isPlaying && wasPlayingLastPoll" only fires on natural track ends.
      */
     fun startPolling() {
         pollJob?.cancel()
+        wasPlayingLastPoll = false  // reset state for fresh polling cycle
         pollJob = repositoryScope.launch {
             while (isActive) {
                 delay(4_000L)
@@ -231,16 +238,20 @@ class SpotifyRepository @Inject constructor(
                         continue
                     }
                     val trackEnded = when {
-                        // Spotify auto-advanced to a different track
-                        state.isPlaying && state.item?.uri != currentPlayingUri
+                        // Case 1: Spotify auto-advanced to its own next track.
+                        // The device is still PLAYING so the next Web API call will succeed.
+                        state.isPlaying && state.item?.uri != null
+                            && state.item.uri != currentPlayingUri
                             && currentPlayingUri != null -> true
-                        // Was playing, now stopped, position reset → natural end
-                        !state.isPlaying && wasPlayingLastPoll && state.progressMs < 3_000L -> true
+                        // Case 2: Track stopped naturally (was playing, now stopped).
+                        // pausePolling() is called on user-initiated pauses, so wasPlayingLastPoll
+                        // is false during those — this branch only fires on real track ends.
+                        !state.isPlaying && wasPlayingLastPoll -> true
                         else -> false
                     }
                     if (trackEnded) {
-                        // Pause Spotify so it doesn't continue into its own queue
-                        runCatching { spotifyApiService.pausePlayback("Bearer $token") }
+                        // Do NOT pause here: leaving Spotify in its current state keeps the
+                        // device active so startPlayback() can use the Web API for the next song.
                         currentPlayingUri = null
                         wasPlayingLastPoll = false
                         playbackEventBus.notifySongEnded()
@@ -261,10 +272,22 @@ class SpotifyRepository @Inject constructor(
         wasPlayingLastPoll = false
     }
 
+    /**
+     * Cancels the polling job while keeping [currentPlayingUri].
+     * Called when the user intentionally pauses so the polling loop cannot
+     * mistake a user-initiated pause for a natural track end.
+     */
+    private fun pausePolling() {
+        pollJob?.cancel()
+        pollJob = null
+        wasPlayingLastPoll = false
+    }
+
     suspend fun pausePlayback(): Result<Unit> {
         return try {
             val token = accessToken ?: return Result.failure(Exception("Not authenticated"))
             spotifyApiService.pausePlayback("Bearer $token")
+            pausePolling()  // stop monitoring while intentionally paused
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

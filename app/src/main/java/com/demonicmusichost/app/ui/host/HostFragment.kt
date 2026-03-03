@@ -139,7 +139,11 @@ class HostFragment : Fragment() {
                 youTubePlayer: YouTubePlayer,
                 error: com.pierfrancescosoffritti.androidyoutubeplayer.core.player.PlayerConstants.PlayerError
             ) {
-                binding.root.showSnackbar("YouTube-Video nicht verfügbar (${error.name})")
+                // Error 101/150/152: video owner has disabled embedded playback.
+                // Skip automatically so the queue keeps moving.
+                binding.root.showSnackbar("YouTube-Video nicht einbettbar – überspringe Song")
+                binding.youtubePlayerView.isVisible = false
+                viewModel.skipSong()
             }
         })
     }
