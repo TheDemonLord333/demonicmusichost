@@ -19,7 +19,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 sealed class HostEvent {
@@ -95,14 +97,48 @@ class HostViewModel @Inject constructor(
         playNextInQueue()
     }
 
+    // ── Spotify Web Playback SDK state ──────────────────────────────────────
+
+    private enum class SdkState { INITIALIZING, READY, FAILED }
+
+    /**
+     * Tracks whether the embedded Spotify SDK WebView has registered a device.
+     * Starts as INITIALIZING. Transitions:
+     *  - READY:  onDeviceReady fired (sdkDeviceId set)
+     *  - FAILED: onError fired or device went offline
+     */
+    private val _sdkState = MutableStateFlow(SdkState.INITIALIZING)
+
     /** Called by HostFragment when the Spotify Web Playback SDK device becomes ready. */
     fun setSpotifyDeviceId(deviceId: String) {
         spotifyRepository.sdkDeviceId = deviceId
+        _sdkState.value = SdkState.READY
     }
 
     /** Called by HostFragment when the SDK device goes offline. */
     fun clearSpotifyDeviceId() {
         spotifyRepository.sdkDeviceId = null
+        _sdkState.value = SdkState.FAILED
+    }
+
+    /** Called by HostFragment when the SDK fires an initialization/auth/account error. */
+    fun onSdkError(message: String) {
+        _sdkState.value = SdkState.FAILED
+    }
+
+    /**
+     * Suspends until the SDK WebView has registered its Spotify device or has
+     * definitively failed (auth error, account error, etc.).
+     *
+     * Waits up to 8 seconds. If the SDK is already ready or failed, returns
+     * immediately. This prevents the fallback Intent (which opens the Spotify app)
+     * from running while the SDK is still initializing.
+     */
+    private suspend fun awaitSdkReady() {
+        if (_sdkState.value != SdkState.INITIALIZING) return
+        withTimeoutOrNull(8_000L) {
+            _sdkState.first { it != SdkState.INITIALIZING }
+        }
     }
 
     /** Returns the current Spotify access token for the WebView JS bridge. */
@@ -216,7 +252,14 @@ class HostViewModel @Inject constructor(
             _playbackPositionMs.value = 0L
 
             val result = when (nextSong.source) {
-                SongSource.SPOTIFY -> spotifyRepository.startPlayback(nextSong.spotifyUri)
+                SongSource.SPOTIFY -> {
+                    // Wait for the SDK WebView device to register before attempting
+                    // playback. Without this, the first play call arrives while the
+                    // SDK is still loading its JS, sdkDeviceId is null, and the
+                    // fallback Intent opens the Spotify app unnecessarily.
+                    awaitSdkReady()
+                    spotifyRepository.startPlayback(nextSong.spotifyUri)
+                }
                 SongSource.YOUTUBE -> {
                     _events.emit(HostEvent.PlayYouTube(nextSong.youtubeVideoId))
                     Result.success(Unit)
@@ -248,7 +291,10 @@ class HostViewModel @Inject constructor(
                 val current = _currentSong.value ?: return@launch
                 _playbackPositionMs.value = 0L
                 val result = when (current.source) {
-                    SongSource.SPOTIFY -> spotifyRepository.startPlayback(current.spotifyUri, 0L)
+                    SongSource.SPOTIFY -> {
+                        awaitSdkReady()
+                        spotifyRepository.startPlayback(current.spotifyUri, 0L)
+                    }
                     SongSource.YOUTUBE -> {
                         _events.emit(HostEvent.PlayYouTube(current.youtubeVideoId))
                         Result.success(Unit)
@@ -282,7 +328,10 @@ class HostViewModel @Inject constructor(
             _playbackPositionMs.value = 0L
 
             val result = when (prev.source) {
-                SongSource.SPOTIFY -> spotifyRepository.startPlayback(prev.spotifyUri, 0L)
+                SongSource.SPOTIFY -> {
+                    awaitSdkReady()
+                    spotifyRepository.startPlayback(prev.spotifyUri, 0L)
+                }
                 SongSource.YOUTUBE -> {
                     _events.emit(HostEvent.PlayYouTube(prev.youtubeVideoId))
                     Result.success(Unit)

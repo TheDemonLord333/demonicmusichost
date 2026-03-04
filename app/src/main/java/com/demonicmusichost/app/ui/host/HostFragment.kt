@@ -165,6 +165,11 @@ class HostFragment : Fragment() {
         spotifyWebPlayer.onTrackEnded = {
             viewModel.onSpotifyTrackEnded()
         }
+        spotifyWebPlayer.onError = { message ->
+            // Mark SDK as failed so awaitSdkReady() unblocks immediately and the
+            // fallback playback path (Steps 1-3) is used instead of waiting indefinitely.
+            viewModel.onSdkError(message)
+        }
 
         // Add the WebView as INVISIBLE (not GONE) inside a 1×1dp container.
         // It must be in the view hierarchy for audio playback to work.

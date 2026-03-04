@@ -4,7 +4,10 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
+import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 
@@ -52,6 +55,13 @@ class SpotifyWebPlayer(private val context: Context) {
                 mediaPlaybackRequiresUserGesture = false
             }
             webViewClient = WebViewClient()
+            webChromeClient = object : WebChromeClient() {
+                override fun onConsoleMessage(msg: ConsoleMessage?): Boolean {
+                    msg ?: return false
+                    Log.d("SpotifyWebView", "${msg.message()} [${msg.sourceId()}:${msg.lineNumber()}]")
+                    return true
+                }
+            }
             addJavascriptInterface(SpotifyJSInterface(), "Android")
         }
 

@@ -250,13 +250,17 @@ class SpotifyRepository @Inject constructor(
     /**
      * Resumes the currently paused Spotify track via the Web API (no app switch).
      * Sending an empty play request body tells Spotify to resume the active context.
+     * If the SDK device is active it is targeted explicitly so playback stays
+     * inside the app rather than switching to the Spotify app device.
      */
     suspend fun resumeCurrentPlayback(): Result<Unit> {
         return try {
             val token = accessToken ?: return Result.failure(Exception("Not authenticated"))
-            // SpotifyPlayRequest() → Gson serialises to {} → Spotify resumes current track
-            spotifyApiService.startPlayback("Bearer $token", SpotifyPlayRequest())
-            startPolling()
+            // SpotifyPlayRequest() → Gson serialises to {} → Spotify resumes current track.
+            // Providing sdkDeviceId ensures we resume on the in-app WebView device, not
+            // whatever device Spotify considers "active" (which might be the Spotify app).
+            spotifyApiService.startPlayback("Bearer $token", SpotifyPlayRequest(), sdkDeviceId)
+            if (sdkDeviceId == null) startPolling() // SDK callbacks handle state when SDK is active
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
