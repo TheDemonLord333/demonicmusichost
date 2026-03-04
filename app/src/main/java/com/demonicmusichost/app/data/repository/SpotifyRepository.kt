@@ -59,8 +59,13 @@ class SpotifyRepository @Inject constructor(
             "user-read-playback-state",
             "user-modify-playback-state",
             "user-read-currently-playing",
+            // "streaming" enables the Web Playback SDK (in-app player via WebView)
             "streaming",
-            "app-remote-control",
+            // "app-remote-control" is intentionally omitted: it is only required by the
+            // Spotify App Remote SDK (which directly controls the Spotify Android app).
+            // We use the Web Playback SDK instead. Having this scope causes Spotify's
+            // backend to notify the Spotify Android app that an app-remote connection is
+            // active, which can cause the Spotify app to open uninvited.
             "user-read-email",
             "user-read-private",
             "playlist-read-private",
@@ -73,10 +78,26 @@ class SpotifyRepository @Inject constructor(
         private const val KEY_DISPLAY_NAME = "display_name"
         private const val KEY_IS_PREMIUM = "is_premium"
         private const val KEY_ACTIVE_HOST_SESSION_ID = "active_host_session_id"
+
+        // Increment this value whenever SPOTIFY_SCOPES changes. On first launch after an
+        // update, the stored token is invalidated so the user re-auths with the new scopes.
+        private const val SCOPES_VERSION = 2
+        private const val KEY_SCOPES_VERSION = "scopes_version"
     }
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .also { p ->
+                // If the stored scopes version is outdated, clear the token so the user
+                // re-authenticates and gets a token with the updated scopes.
+                if (p.getInt(KEY_SCOPES_VERSION, 0) < SCOPES_VERSION) {
+                    p.edit()
+                        .remove(KEY_ACCESS_TOKEN)
+                        .remove(KEY_TOKEN_EXPIRY)
+                        .putInt(KEY_SCOPES_VERSION, SCOPES_VERSION)
+                        .apply()
+                }
+            }
 
     var accessToken: String?
         get() = prefs.getString(KEY_ACCESS_TOKEN, null)
@@ -193,6 +214,7 @@ class SpotifyRepository @Inject constructor(
 
         // Step 0: Web Playback SDK device — best path, no polling, no app switch
         sdkDeviceId?.let { deviceId ->
+            stopPolling() // cancel any residual polling job from a previous fallback play
             return try {
                 spotifyApiService.startPlayback("Bearer $token", playRequest, deviceId)
                 // SDK fires onTrackEnded via JavaScript — no polling needed
@@ -370,7 +392,7 @@ class SpotifyRepository @Inject constructor(
     }
 
     fun logout() {
-        prefs.edit().clear().apply()
+        prefs.edit().clear().putInt(KEY_SCOPES_VERSION, SCOPES_VERSION).apply()
         sdkDeviceId = null
         cachedDeviceId = null
     }

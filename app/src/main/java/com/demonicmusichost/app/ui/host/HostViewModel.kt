@@ -112,6 +112,10 @@ class HostViewModel @Inject constructor(
     /** Called by HostFragment when the Spotify Web Playback SDK device becomes ready. */
     fun setSpotifyDeviceId(deviceId: String) {
         spotifyRepository.sdkDeviceId = deviceId
+        // Kill any polling job that was started by a previous fallback play (Intent path).
+        // If polling kept running it could fire notifySongEnded() while the SDK is playing,
+        // which would call playNextInQueue() a second time and eventually reach fallbackToIntent().
+        spotifyRepository.stopPolling()
         _sdkState.value = SdkState.READY
     }
 
