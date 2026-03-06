@@ -171,12 +171,13 @@ class HostFragment : Fragment() {
             viewModel.onSdkError(message)
         }
 
-        // Add the WebView as INVISIBLE (not GONE) inside a 1×1dp container.
-        // It must be in the view hierarchy for audio playback to work.
+        // Add the WebView as VISIBLE with alpha=0 inside a 1×1dp container.
+        // INVISIBLE blocks the Spotify SDK's audio-pipeline initialisation on some
+        // Android versions; VISIBLE+alpha=0 keeps it fully rendered but transparent.
         val webView = spotifyWebPlayer.createWebView()
         val container = FrameLayout(requireContext()).apply {
             layoutParams = FrameLayout.LayoutParams(1, 1)
-            visibility = View.INVISIBLE
+            alpha = 0f
             addView(webView)
         }
         (binding.root as ViewGroup).addView(container)

@@ -59,8 +59,12 @@ class SpotifyWebPlayer(private val context: Context) {
                 // so the only reliable fix is overriding the UA at the WebView settings level.
                 // Spotify's token-based Web API and WebSocket auth are not UA-sensitive,
                 // so using a desktop UA here does not break server-side authentication.
-                userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
-                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                // Windows UA is required: the SDK also checks `'ontouchstart' in window`
+                // and only skips the mobile block when "Windows" is present in the UA
+                // (to allow touch-screen Windows laptops). Linux passes the Android
+                // check but still fails the ontouchstart+non-Windows combination.
+                userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
             webViewClient = WebViewClient()
             webChromeClient = object : WebChromeClient() {
