@@ -8,6 +8,8 @@ import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 
@@ -24,6 +26,13 @@ import android.webkit.WebViewClient
 class SpotifyWebPlayer(private val context: Context) {
 
     private var webView: WebView? = null
+
+    companion object {
+        // A localhost URL that the Spotify SDK accepts as a valid origin.
+        // We intercept this URL in shouldInterceptRequest and serve the HTML from
+        // assets — no real HTTP server is needed.
+        private const val PLAYER_URL = "http://localhost/dmh-spotify-player"
+    }
     private val mainHandler = Handler(Looper.getMainLooper())
 
     /** Returns the current Spotify access token; called from JavaScript. */
@@ -66,7 +75,29 @@ class SpotifyWebPlayer(private val context: Context) {
                 userAgentString = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
                     "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest
+                ): WebResourceResponse? {
+                    // Intercept the player page so we serve it from assets while the
+                    // WebView believes it loaded from a real http://localhost URL.
+                    // loadDataWithBaseURL() does NOT establish a proper secure context
+                    // (window.isSecureContext = false), which causes the Spotify SDK to
+                    // fail its browser-support check (crypto.subtle is undefined on
+                    // non-secure contexts). Serving via shouldInterceptRequest makes
+                    // http://localhost/dmh-spotify-player a genuine localhost origin
+                    // so isSecureContext = true and all required APIs are available.
+                    if (request.url.toString() == PLAYER_URL) {
+                        val html = context.assets.open("spotify_player.html")
+                            .bufferedReader().use { it.readText() }
+                        return WebResourceResponse(
+                            "text/html", "utf-8", html.byteInputStream()
+                        )
+                    }
+                    return null
+                }
+            }
             webChromeClient = object : WebChromeClient() {
                 override fun onConsoleMessage(msg: ConsoleMessage?): Boolean {
                     msg ?: return false
@@ -77,10 +108,7 @@ class SpotifyWebPlayer(private val context: Context) {
             addJavascriptInterface(SpotifyJSInterface(), "Android")
         }
 
-        // Load the HTML from assets. The base URL must be http://localhost so the
-        // Spotify SDK accepts it (it requires HTTPS or localhost as origin).
-        val html = context.assets.open("spotify_player.html").bufferedReader().use { it.readText() }
-        wv.loadDataWithBaseURL("http://localhost", html, "text/html", "UTF-8", null)
+        wv.loadUrl(PLAYER_URL)
 
         webView = wv
         return wv

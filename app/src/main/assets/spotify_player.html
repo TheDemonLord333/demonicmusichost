@@ -6,6 +6,12 @@
 <body>
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
 <script>
+  // Diagnostic: report secure-context state so we can see it in Logcat.
+  // isSecureContext must be true for the Spotify SDK (needs crypto.subtle).
+  console.log('DMH isSecureContext=' + window.isSecureContext
+    + ' origin=' + location.origin
+    + ' ua=' + navigator.userAgent.slice(0, 60));
+
   // Tracks whether the player was active before the last state change.
   // Used to distinguish a natural track end (paused + position reset to 0)
   // from a user-initiated pause (paused + position > 0).
