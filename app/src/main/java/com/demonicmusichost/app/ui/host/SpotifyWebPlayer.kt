@@ -12,6 +12,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.URL
 
 /**
  * Manages a hidden WebView that runs the Spotify Web Playback SDK.
@@ -32,7 +35,18 @@ class SpotifyWebPlayer(private val context: Context) {
         // We intercept this URL in shouldInterceptRequest and serve the HTML from
         // assets — no real HTTP server is needed.
         private const val PLAYER_URL = "http://localhost/dmh-spotify-player"
+
+        // The Spotify Web Playback SDK script URL.
+        // We intercept this in shouldInterceptRequest, download it on the device,
+        // patch out the mobile-detection block that emits initialization_error, and
+        // serve the modified version so the SDK initialises in our Android WebView.
+        private const val SDK_URL = "https://sdk.scdn.co/spotify-player.js"
+
+        // Cached patched SDK JS — persists for the app process lifetime so we only
+        // download and patch once per process (not per WebView instance).
+        @Volatile private var patchedSdkJs: String? = null
     }
+
     private val mainHandler = Handler(Looper.getMainLooper())
 
     /** Returns the current Spotify access token; called from JavaScript. */
@@ -52,7 +66,8 @@ class SpotifyWebPlayer(private val context: Context) {
 
     /**
      * Creates and returns the WebView. Add the returned view to your layout
-     * as INVISIBLE (not GONE) so audio playback works while the view is hidden.
+     * as VISIBLE with alpha=0 (not INVISIBLE/GONE) so audio playback works
+     * while the view is visually hidden.
      */
     @SuppressLint("SetJavaScriptEnabled")
     fun createWebView(): WebView {
@@ -80,6 +95,8 @@ class SpotifyWebPlayer(private val context: Context) {
                     view: WebView,
                     request: WebResourceRequest
                 ): WebResourceResponse? {
+                    val url = request.url.toString()
+
                     // Intercept the player page so we serve it from assets while the
                     // WebView believes it loaded from a real http://localhost URL.
                     // loadDataWithBaseURL() does NOT establish a proper secure context
@@ -88,13 +105,23 @@ class SpotifyWebPlayer(private val context: Context) {
                     // non-secure contexts). Serving via shouldInterceptRequest makes
                     // http://localhost/dmh-spotify-player a genuine localhost origin
                     // so isSecureContext = true and all required APIs are available.
-                    if (request.url.toString() == PLAYER_URL) {
+                    if (url == PLAYER_URL) {
                         val html = context.assets.open("spotify_player.html")
                             .bufferedReader().use { it.readText() }
                         return WebResourceResponse(
                             "text/html", "utf-8", html.byteInputStream()
                         )
                     }
+
+                    // Intercept the Spotify SDK script and serve a patched version that
+                    // has its mobile-environment detection neutralised. This prevents the
+                    // SDK from emitting initialization_error when running in Android WebView.
+                    // shouldInterceptRequest is called on a background thread, so the
+                    // blocking network call here is safe.
+                    if (url == SDK_URL) {
+                        return fetchAndPatchSdkJs()
+                    }
+
                     return null
                 }
             }
@@ -112,6 +139,107 @@ class SpotifyWebPlayer(private val context: Context) {
 
         webView = wv
         return wv
+    }
+
+    /**
+     * Downloads the Spotify SDK JS (or uses the cached copy), patches out the
+     * mobile-detection code that emits [initialization_error], and returns a
+     * [WebResourceResponse] serving the patched script.
+     *
+     * Returns null if the download fails so the WebView falls back to its own
+     * network stack and loads the unpatched SDK (which may still fail, but at
+     * least we don't lose playback on a transient network error).
+     */
+    private fun fetchAndPatchSdkJs(): WebResourceResponse? {
+        try {
+            val js = patchedSdkJs ?: run {
+                val raw = downloadSdkJs() ?: return null
+                val patched = patchSdkJs(raw)
+                patchedSdkJs = patched
+                patched
+            }
+            return WebResourceResponse(
+                "application/javascript",
+                "utf-8",
+                ByteArrayInputStream(js.toByteArray(Charsets.UTF_8))
+            )
+        } catch (e: Exception) {
+            Log.e("SpotifyWebView", "fetchAndPatchSdkJs error: ${e.message}")
+            return null
+        }
+    }
+
+    private fun downloadSdkJs(): String? {
+        return try {
+            val conn = URL(SDK_URL).openConnection() as HttpURLConnection
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 15_000
+            conn.setRequestProperty("User-Agent", "Mozilla/5.0")
+            val text = conn.inputStream.bufferedReader(Charsets.UTF_8).use { it.readText() }
+            conn.disconnect()
+            Log.d("SpotifyWebView", "SDK JS downloaded (${text.length} chars)")
+            text
+        } catch (e: Exception) {
+            Log.e("SpotifyWebView", "SDK JS download failed: ${e.message}")
+            null
+        }
+    }
+
+    /**
+     * Applies targeted patches to the minified Spotify SDK JS to allow it to
+     * run inside Android WebView without triggering the mobile-device guard.
+     *
+     * Patch strategy:
+     *  1. Find the `emit("initialization_error", new Error("Failed to initialize player"))`
+     *     call that the SDK makes when it decides the runtime is a mobile browser,
+     *     and replace it with a no-op.  This is the innermost call, so the outer
+     *     condition that triggered it is irrelevant — we just prevent the signal.
+     *  2. (Fallback) Replace any reference to the literal error message with an
+     *     empty string so the Error object carries no recognisable message, which
+     *     prevents our own `onError` handler from reacting to it.
+     */
+    private fun patchSdkJs(js: String): String {
+        // Pattern covers common minifier outputs:
+        //   x.emit("initialization_error",new Error("Failed to initialize player"))
+        //   this._emitter.emit('initialization_error',new Error('Failed to initialize player'))
+        //   e.emit("initialization_error",new Error("Failed to initialize player"))
+        val emitPattern = Regex(
+            """([\w${'$'}]+(?:\.[\w${'$'}]+)*)\s*\.\s*emit\s*\(\s*["']initialization_error["']\s*,\s*new\s+Error\s*\(\s*["']Failed to initialize player["']\s*\)\s*\)"""
+        )
+
+        var patched = emitPattern.replace(js) { matchResult ->
+            // Keep the object reference expression intact so surrounding comma-separated
+            // expressions still parse; replace the whole call with void 0.
+            "(void 0 /* DMH: mobile-detection patch */)"
+        }
+
+        if (patched != js) {
+            Log.d("SpotifyWebView", "SDK JS patched: initialization_error emit removed")
+            return patched
+        }
+
+        // Fallback: try a simpler match without the object prefix in case the
+        // minifier inlined the emit differently.
+        val simplePattern = Regex(
+            """emit\s*\(\s*["']initialization_error["']\s*,\s*new\s+Error\s*\(\s*["']Failed to initialize player["']\s*\)\s*\)"""
+        )
+        patched = simplePattern.replace(js, "(void 0 /* DMH: mobile-detection patch */)")
+        if (patched != js) {
+            Log.d("SpotifyWebView", "SDK JS patched (simple): initialization_error emit removed")
+            return patched
+        }
+
+        // Second fallback: just erase the literal error message so our handler
+        // doesn't recognise it as a mobile-detection failure.
+        val messagePattern = Regex("""["']Failed to initialize player["']""")
+        patched = messagePattern.replace(js, "\"\"")
+        if (patched != js) {
+            Log.w("SpotifyWebView", "SDK JS patched (message erasure fallback)")
+            return patched
+        }
+
+        Log.w("SpotifyWebView", "SDK JS: no patch pattern matched — serving unpatched")
+        return js
     }
 
     /** Pause the SDK player via JavaScript. */

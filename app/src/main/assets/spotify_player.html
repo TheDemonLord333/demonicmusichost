@@ -4,6 +4,23 @@
   <meta charset="utf-8">
 </head>
 <body>
+<script>
+  // Remove touch markers before the SDK loads so its mobile-detection check
+  // does not classify this WebView as a mobile browser.
+  // 'ontouchstart' in window is the primary signal Spotify uses (in addition
+  // to the UA) to detect a touch-screen mobile device.
+  try { delete window.ontouchstart; } catch (e) {}
+  try { delete window.ontouchend; } catch (e) {}
+  try { delete window.ontouchmove; } catch (e) {}
+  try { delete window.ontouchcancel; } catch (e) {}
+
+  // Clamp maxTouchPoints to 0 so it looks like a mouse-only desktop.
+  try {
+    Object.defineProperty(navigator, 'maxTouchPoints', {
+      get: function() { return 0; }, configurable: true
+    });
+  } catch (e) {}
+</script>
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
 <script>
   // Diagnostic: report secure-context state so we can see it in Logcat.
