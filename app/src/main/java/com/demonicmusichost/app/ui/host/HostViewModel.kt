@@ -109,14 +109,40 @@ class HostViewModel @Inject constructor(
      */
     private val _sdkState = MutableStateFlow(SdkState.INITIALIZING)
 
+    /**
+     * Set to true when a Spotify song is queued for playback but the SDK device
+     * has not registered yet. [setSpotifyDeviceId] will auto-start the song when
+     * the SDK fires its `ready` event.
+     */
+    private var pendingSpotifyPlay = false
+
+    /** Last SDK error message (init/auth/account), kept for user-facing display. */
+    private var lastSdkError: String? = null
+
     /** Called by HostFragment when the Spotify Web Playback SDK device becomes ready. */
     fun setSpotifyDeviceId(deviceId: String) {
         spotifyRepository.sdkDeviceId = deviceId
-        // Kill any polling job that was started by a previous fallback play (Intent path).
-        // If polling kept running it could fire notifySongEnded() while the SDK is playing,
-        // which would call playNextInQueue() a second time and eventually reach fallbackToIntent().
         spotifyRepository.stopPolling()
         _sdkState.value = SdkState.READY
+
+        // If a play was requested before the SDK registered, start it now.
+        if (pendingSpotifyPlay) {
+            pendingSpotifyPlay = false
+            val song = _currentSong.value?.takeIf { it.source == SongSource.SPOTIFY } ?: return
+            viewModelScope.launch {
+                spotifyRepository.startPlayback(song.spotifyUri)
+                    .onSuccess {
+                        _isPlaying.value = true
+                        sessionRepository.updatePlaybackInfo(
+                            sessionId,
+                            PlaybackInfo(state = PlaybackState.PLAYING, positionMs = 0L)
+                        )
+                    }
+                    .onFailure { e ->
+                        _events.emit(HostEvent.ShowError("Wiedergabe fehlgeschlagen: ${e.message}"))
+                    }
+            }
+        }
     }
 
     /** Called by HostFragment when the SDK device goes offline. */
@@ -127,6 +153,7 @@ class HostViewModel @Inject constructor(
 
     /** Called by HostFragment when the SDK fires an initialization/auth/account error. */
     fun onSdkError(message: String) {
+        lastSdkError = message
         _sdkState.value = SdkState.FAILED
     }
 
@@ -134,14 +161,39 @@ class HostViewModel @Inject constructor(
      * Suspends until the SDK WebView has registered its Spotify device or has
      * definitively failed (auth error, account error, etc.).
      *
-     * Waits up to 8 seconds. If the SDK is already ready or failed, returns
-     * immediately. This prevents the fallback Intent (which opens the Spotify app)
-     * from running while the SDK is still initializing.
+     * Waits up to 15 seconds. If the SDK is already ready or failed, returns
+     * immediately.
      */
     private suspend fun awaitSdkReady() {
         if (_sdkState.value != SdkState.INITIALIZING) return
-        withTimeoutOrNull(8_000L) {
+        withTimeoutOrNull(15_000L) {
             _sdkState.first { it != SdkState.INITIALIZING }
+        }
+    }
+
+    /**
+     * Starts playback of [spotifyUri] via the SDK, or queues it if the SDK is
+     * still initializing. Returns true if playback started immediately.
+     */
+    private suspend fun startSpotifyPlayback(spotifyUri: String): Result<Unit> {
+        awaitSdkReady()
+        return when {
+            spotifyRepository.sdkDeviceId != null -> {
+                spotifyRepository.startPlayback(spotifyUri)
+            }
+            _sdkState.value == SdkState.INITIALIZING -> {
+                // SDK is still loading (timeout elapsed) — queue and auto-start when ready
+                pendingSpotifyPlay = true
+                _events.emit(HostEvent.ShowMessage("Verbinde mit Spotify Web Player…"))
+                // Return failure with a sentinel so the caller skips _isPlaying = true.
+                // The pending play in setSpotifyDeviceId() sets _isPlaying when it fires.
+                Result.failure(Exception("__pending__"))
+            }
+            else -> {
+                // FAILED state — surface the actual SDK error
+                val reason = lastSdkError ?: "Unbekannter Fehler"
+                Result.failure(Exception("Spotify Web Player Fehler: $reason"))
+            }
         }
     }
 
@@ -256,14 +308,7 @@ class HostViewModel @Inject constructor(
             _playbackPositionMs.value = 0L
 
             val result = when (nextSong.source) {
-                SongSource.SPOTIFY -> {
-                    // Wait for the SDK WebView device to register before attempting
-                    // playback. Without this, the first play call arrives while the
-                    // SDK is still loading its JS, sdkDeviceId is null, and the
-                    // fallback Intent opens the Spotify app unnecessarily.
-                    awaitSdkReady()
-                    spotifyRepository.startPlayback(nextSong.spotifyUri)
-                }
+                SongSource.SPOTIFY -> startSpotifyPlayback(nextSong.spotifyUri)
                 SongSource.YOUTUBE -> {
                     _events.emit(HostEvent.PlayYouTube(nextSong.youtubeVideoId))
                     Result.success(Unit)
@@ -281,7 +326,11 @@ class HostViewModel @Inject constructor(
                     PlaybackInfo(state = PlaybackState.PLAYING, positionMs = 0L)
                 )
             }.onFailure { e ->
-                _events.emit(HostEvent.ShowError("Wiedergabe fehlgeschlagen: ${e.message}"))
+                // "__pending__" is a sentinel: the play was queued and will auto-start
+                // when the SDK device registers. No error should be shown to the user.
+                if (e.message != "__pending__") {
+                    _events.emit(HostEvent.ShowError("Wiedergabe fehlgeschlagen: ${e.message}"))
+                }
             }
         }
     }
@@ -295,10 +344,7 @@ class HostViewModel @Inject constructor(
                 val current = _currentSong.value ?: return@launch
                 _playbackPositionMs.value = 0L
                 val result = when (current.source) {
-                    SongSource.SPOTIFY -> {
-                        awaitSdkReady()
-                        spotifyRepository.startPlayback(current.spotifyUri, 0L)
-                    }
+                    SongSource.SPOTIFY -> startSpotifyPlayback(current.spotifyUri)
                     SongSource.YOUTUBE -> {
                         _events.emit(HostEvent.PlayYouTube(current.youtubeVideoId))
                         Result.success(Unit)
@@ -332,10 +378,7 @@ class HostViewModel @Inject constructor(
             _playbackPositionMs.value = 0L
 
             val result = when (prev.source) {
-                SongSource.SPOTIFY -> {
-                    awaitSdkReady()
-                    spotifyRepository.startPlayback(prev.spotifyUri, 0L)
-                }
+                SongSource.SPOTIFY -> startSpotifyPlayback(prev.spotifyUri)
                 SongSource.YOUTUBE -> {
                     _events.emit(HostEvent.PlayYouTube(prev.youtubeVideoId))
                     Result.success(Unit)
@@ -353,7 +396,11 @@ class HostViewModel @Inject constructor(
                     PlaybackInfo(state = PlaybackState.PLAYING, positionMs = 0L)
                 )
             }.onFailure { e ->
-                _events.emit(HostEvent.ShowError("Wiedergabe fehlgeschlagen: ${e.message}"))
+                // "__pending__" is a sentinel: the play was queued and will auto-start
+                // when the SDK device registers. No error should be shown to the user.
+                if (e.message != "__pending__") {
+                    _events.emit(HostEvent.ShowError("Wiedergabe fehlgeschlagen: ${e.message}"))
+                }
             }
         }
     }
