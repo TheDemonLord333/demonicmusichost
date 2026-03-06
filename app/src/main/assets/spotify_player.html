@@ -14,7 +14,7 @@
 
   window.onSpotifyWebPlaybackSDKReady = function() {
     var player = new Spotify.Player({
-      name: 'DemonicMusicHost',
+      name: 'DMH',
       getOAuthToken: function(cb) {
         cb(Android.getAccessToken());
       },

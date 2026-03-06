@@ -1,15 +1,11 @@
 package com.demonicmusichost.app.data.repository
 
-import android.content.ActivityNotFoundException
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
-import android.net.Uri
 import com.demonicmusichost.app.BuildConfig
 import com.demonicmusichost.app.data.model.SearchResult
 import com.demonicmusichost.app.data.network.SpotifyApiService
 import com.demonicmusichost.app.data.network.SpotifyPlayRequest
-import com.demonicmusichost.app.data.network.SpotifyTransferPlaybackRequest
 import com.demonicmusichost.app.data.network.SpotifyUserResponse
 import com.demonicmusichost.app.service.PlaybackEventBus
 import com.spotify.sdk.android.auth.AuthorizationRequest
@@ -49,9 +45,6 @@ class SpotifyRepository @Inject constructor(
      * audio plays inside the app without ever opening the Spotify app.
      */
     var sdkDeviceId: String? = null
-
-    /** Device ID of the Spotify app on this phone, cached after first lookup. */
-    private var cachedDeviceId: String? = null
 
     companion object {
         const val SPOTIFY_REQUEST_CODE = 1337
@@ -163,86 +156,31 @@ class SpotifyRepository @Inject constructor(
     }
 
     /**
-     * Starts playing the given Spotify URI without leaving DemonicMusicHost.
+     * Starts playing the given Spotify URI via the embedded Web Playback SDK WebView.
      *
-     * Four-step strategy (each step only runs if the previous one fails/is unavailable):
+     * This is the only supported play path. The SDK registers a Spotify Connect device
+     * inside the hidden WebView; targeting it keeps all audio inside DemonicMusicHost
+     * and ensures the Spotify app is never opened.
      *
-     * 0. SDK device play: if our embedded WebView has registered a Spotify Connect
-     *    device, target it directly. No polling needed — the SDK JS fires [onTrackEnded]
-     *    via callback. This is the primary path after the WebView is ready.
-     *
-     * 1. Direct Web API play: works when Spotify already has an active device
-     *    (e.g. the Spotify app was recently used). Uses polling to detect track end.
-     *
-     * 2. Transfer + play: fetches available Spotify devices, transfers playback
-     *    to this phone's Spotify client (keeps it in background), then plays.
-     *
-     * 3. Intent fallback: only runs when Spotify has no device at all (i.e. the
-     *    Spotify app is not running). After this one-time launch Spotify is in the
-     *    background and steps 1/2 succeed for subsequent songs.
+     * Returns [Result.failure] if the SDK device has not registered yet (caller should
+     * wait via [HostViewModel.awaitSdkReady] before calling this) or if the Web API call fails.
      */
     suspend fun startPlayback(uri: String, positionMs: Long = 0L): Result<Unit> {
         currentPlayingUri = uri
         wasPlayingLastPoll = false
+        stopPolling()
 
-        val token = accessToken ?: return fallbackToIntent(uri)
+        val token = accessToken ?: return Result.failure(Exception("Nicht angemeldet"))
+        val deviceId = sdkDeviceId ?: return Result.failure(Exception("Web Playback SDK noch nicht bereit"))
+
         val playRequest = SpotifyPlayRequest(
             uris = listOf(uri),
             positionMs = if (positionMs > 0L) positionMs else null
         )
-
-        // Step 0: Web Playback SDK device — best path, no polling, no app switch
-        sdkDeviceId?.let { deviceId ->
-            stopPolling() // cancel any residual polling job from a previous fallback play
-            return try {
-                spotifyApiService.startPlayback("Bearer $token", playRequest, deviceId)
-                // SDK fires onTrackEnded via JavaScript — no polling needed
-                Result.success(Unit)
-            } catch (e: Exception) {
-                Result.failure(e)
-            }
-        }
-
-        // Step 1: Direct play (works when Spotify app device is already active)
-        try {
-            spotifyApiService.startPlayback("Bearer $token", playRequest)
-            startPolling()
-            return Result.success(Unit)
-        } catch (_: Exception) { }
-
-        // Step 2: Find the Spotify app device, transfer playback, then play
-        try {
-            val deviceId = cachedDeviceId ?: run {
-                val devices = spotifyApiService.getDevices("Bearer $token").devices
-                devices.firstOrNull { !it.isRestricted }?.id.also { cachedDeviceId = it }
-            }
-            if (deviceId != null) {
-                spotifyApiService.transferPlayback(
-                    "Bearer $token",
-                    SpotifyTransferPlaybackRequest(deviceIds = listOf(deviceId), play = false)
-                )
-                delay(800L) // give Spotify time to activate the device
-                spotifyApiService.startPlayback("Bearer $token", playRequest)
-                startPolling()
-                return Result.success(Unit)
-            }
-        } catch (_: Exception) {
-            cachedDeviceId = null // stale cache — clear so next call re-fetches
-        }
-
-        // Step 3: No Spotify device found — launch Intent once to start the Spotify app
-        return fallbackToIntent(uri)
-    }
-
-    private fun fallbackToIntent(uri: String): Result<Unit> {
         return try {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri)).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            })
-            startPolling()
+            spotifyApiService.startPlayback("Bearer $token", playRequest, deviceId)
+            // Track-end detection is handled by the SDK JS callback — no polling needed.
             Result.success(Unit)
-        } catch (e: ActivityNotFoundException) {
-            Result.failure(Exception("Spotify ist nicht installiert"))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -258,10 +196,8 @@ class SpotifyRepository @Inject constructor(
         return try {
             val token = accessToken ?: return Result.failure(Exception("Not authenticated"))
             // SpotifyPlayRequest() → Gson serialises to {} → Spotify resumes current track.
-            // Providing sdkDeviceId ensures we resume on the in-app WebView device, not
-            // whatever device Spotify considers "active" (which might be the Spotify app).
+            // Always target the SDK device so resume stays inside DemonicMusicHost.
             spotifyApiService.startPlayback("Bearer $token", SpotifyPlayRequest(), sdkDeviceId)
-            if (sdkDeviceId == null) startPolling() // SDK callbacks handle state when SDK is active
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -373,7 +309,6 @@ class SpotifyRepository @Inject constructor(
     fun logout() {
         prefs.edit().clear().apply()
         sdkDeviceId = null
-        cachedDeviceId = null
     }
 
     fun clearActiveSession() {
