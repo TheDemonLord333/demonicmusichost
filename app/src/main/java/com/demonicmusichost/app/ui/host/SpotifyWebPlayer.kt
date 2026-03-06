@@ -53,11 +53,6 @@ class SpotifyWebPlayer(private val context: Context) {
                 domStorageEnabled = true
                 // Allow audio to play without a user gesture (required for background playback)
                 mediaPlaybackRequiresUserGesture = false
-                // Masquerade as a desktop browser so the Spotify Web Playback SDK does not
-                // detect Android and silently activate App Remote (which opens the Spotify app).
-                // With a desktop UA the SDK stays on the pure Web Playback path.
-                userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
-                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
             webViewClient = WebViewClient()
             webChromeClient = object : WebChromeClient() {
