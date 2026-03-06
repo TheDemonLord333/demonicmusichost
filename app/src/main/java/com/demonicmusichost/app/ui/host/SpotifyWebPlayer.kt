@@ -53,6 +53,14 @@ class SpotifyWebPlayer(private val context: Context) {
                 domStorageEnabled = true
                 // Allow audio to play without a user gesture (required for background playback)
                 mediaPlaybackRequiresUserGesture = false
+                // The Spotify Web Playback SDK reads navigator.userAgent and throws
+                // init_error:Failed to initialize player on any mobile/Android UA.
+                // Object.defineProperty on navigator is non-configurable in Android WebView,
+                // so the only reliable fix is overriding the UA at the WebView settings level.
+                // Spotify's token-based Web API and WebSocket auth are not UA-sensitive,
+                // so using a desktop UA here does not break server-side authentication.
+                userAgentString = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 " +
+                    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
             webViewClient = WebViewClient()
             webChromeClient = object : WebChromeClient() {
