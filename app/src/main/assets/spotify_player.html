@@ -5,6 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
+<script>
+  // The Spotify Web Playback SDK refuses to initialise in mobile environments —
+  // it reads navigator.userAgent and throws init_error if it detects Android/mobile.
+  // We override the navigator properties that the SDK checks IN JAVASCRIPT ONLY,
+  // so the SDK sees a desktop browser. Network requests (HTTP, WebSocket) are
+  // unaffected and continue to use the real WebView UA, which Spotify's backend
+  // needs for correct token validation and WebSocket authentication.
+  (function () {
+    var desktop = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 ' +
+                  '(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+    try {
+      Object.defineProperty(navigator, 'userAgent',      { get: function () { return desktop; } });
+      Object.defineProperty(navigator, 'platform',       { get: function () { return 'Linux x86_64'; } });
+      Object.defineProperty(navigator, 'maxTouchPoints', { get: function () { return 0; } });
+    } catch (e) { /* read-only in some environments — ignore */ }
+  })();
+</script>
 <script src="https://sdk.scdn.co/spotify-player.js"></script>
 <script>
   // Tracks whether the player was active before the last state change.
