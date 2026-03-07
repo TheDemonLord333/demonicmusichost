@@ -12,6 +12,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import androidx.webkit.WebViewAssetLoader
 import java.io.ByteArrayInputStream
 import java.net.HttpURLConnection
 import java.net.URL
@@ -31,10 +32,15 @@ class SpotifyWebPlayer(private val context: Context) {
     private var webView: WebView? = null
 
     companion object {
-        // A localhost URL that the Spotify SDK accepts as a valid origin.
-        // We intercept this URL in shouldInterceptRequest and serve the HTML from
-        // assets — no real HTTP server is needed.
-        private const val PLAYER_URL = "http://localhost/dmh-spotify-player"
+        // WebViewAssetLoader serves our HTML from assets/ over a guaranteed HTTPS
+        // origin (https://appassets.androidplatform.net). This is the standard
+        // Android way to get isSecureContext = true for local assets, which the
+        // Spotify Web Playback SDK requires (it calls crypto.subtle internally).
+        // Using http://localhost did NOT reliably give isSecureContext = true on
+        // all Android WebView versions — hence the switch.
+        private const val ASSET_HOST = "appassets.androidplatform.net"
+        private const val PLAYER_URL =
+            "https://$ASSET_HOST/assets/spotify_player.html"
 
         // The Spotify Web Playback SDK script URL.
         // We intercept this in shouldInterceptRequest, download it on the device,
@@ -71,6 +77,12 @@ class SpotifyWebPlayer(private val context: Context) {
      */
     @SuppressLint("SetJavaScriptEnabled")
     fun createWebView(): WebView {
+        // Serves files under assets/ over https://appassets.androidplatform.net/assets/
+        val assetLoader = WebViewAssetLoader.Builder()
+            .setDomain(ASSET_HOST)
+            .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(context))
+            .build()
+
         val wv = WebView(context).apply {
             settings.apply {
                 javaScriptEnabled = true
@@ -97,21 +109,12 @@ class SpotifyWebPlayer(private val context: Context) {
                 ): WebResourceResponse? {
                     val url = request.url.toString()
 
-                    // Intercept the player page so we serve it from assets while the
-                    // WebView believes it loaded from a real http://localhost URL.
-                    // loadDataWithBaseURL() does NOT establish a proper secure context
-                    // (window.isSecureContext = false), which causes the Spotify SDK to
-                    // fail its browser-support check (crypto.subtle is undefined on
-                    // non-secure contexts). Serving via shouldInterceptRequest makes
-                    // http://localhost/dmh-spotify-player a genuine localhost origin
-                    // so isSecureContext = true and all required APIs are available.
-                    if (url == PLAYER_URL) {
-                        val html = context.assets.open("spotify_player.html")
-                            .bufferedReader().use { it.readText() }
-                        return WebResourceResponse(
-                            "text/html", "utf-8", html.byteInputStream()
-                        )
-                    }
+                    // Let WebViewAssetLoader handle all requests to our asset host.
+                    // It serves spotify_player.html (and any other assets) over the
+                    // https://appassets.androidplatform.net origin, giving the page a
+                    // genuine secure context so crypto.subtle / isSecureContext work.
+                    val assetResponse = assetLoader.shouldInterceptRequest(request.url)
+                    if (assetResponse != null) return assetResponse
 
                     // Intercept the Spotify SDK script and serve a patched version that
                     // has its mobile-environment detection neutralised. This prevents the
@@ -207,7 +210,7 @@ class SpotifyWebPlayer(private val context: Context) {
             """([\w${'$'}]+(?:\.[\w${'$'}]+)*)\s*\.\s*emit\s*\(\s*["']initialization_error["']\s*,\s*new\s+Error\s*\(\s*["']Failed to initialize player["']\s*\)\s*\)"""
         )
 
-        var patched = emitPattern.replace(js) { matchResult ->
+        var patched = emitPattern.replace(js) { _ ->
             // Keep the object reference expression intact so surrounding comma-separated
             // expressions still parse; replace the whole call with void 0.
             "(void 0 /* DMH: mobile-detection patch */)"
