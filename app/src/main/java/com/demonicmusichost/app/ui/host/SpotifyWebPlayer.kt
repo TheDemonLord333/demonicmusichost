@@ -40,7 +40,7 @@ class SpotifyWebPlayer(private val context: Context) {
         // all Android WebView versions — hence the switch.
         private const val ASSET_HOST = "appassets.androidplatform.net"
         private const val PLAYER_URL =
-            "https://$ASSET_HOST/assets/spotify_player.html"
+            "https://$ASSET_HOST/assets/index.html"
 
         // The Spotify Web Playback SDK script URL.
         // We intercept this in shouldInterceptRequest, download it on the device,
@@ -108,19 +108,34 @@ class SpotifyWebPlayer(private val context: Context) {
                     request: WebResourceRequest
                 ): WebResourceResponse? {
                     val url = request.url.toString()
+                    val path = request.url.path ?: ""
 
-                    // Let WebViewAssetLoader handle all requests to our asset host.
-                    // It serves spotify_player.html (and any other assets) over the
-                    // https://appassets.androidplatform.net origin, giving the page a
-                    // genuine secure context so crypto.subtle / isSecureContext work.
+                    // 1. WebViewAssetLoader: serves index.html, app.js etc. from assets/
+                    //    over https://appassets.androidplatform.net — gives isSecureContext=true.
                     val assetResponse = assetLoader.shouldInterceptRequest(request.url)
                     if (assetResponse != null) return assetResponse
 
-                    // Intercept the Spotify SDK script and serve a patched version that
-                    // has its mobile-environment detection neutralised. This prevents the
-                    // SDK from emitting initialization_error when running in Android WebView.
-                    // shouldInterceptRequest is called on a background thread, so the
-                    // blocking network call here is safe.
+                    // 2. /api/token — returns the current Spotify access token as JSON.
+                    //    Intercepted here instead of using Android.getAccessToken() so
+                    //    the SDK can call it asynchronously (fetch-based getOAuthToken).
+                    if (path == "/api/token") {
+                        val token = accessTokenProvider() ?: ""
+                        val json = """{"access_token":"$token"}"""
+                        return WebResourceResponse(
+                            "application/json",
+                            "utf-8",
+                            ByteArrayInputStream(json.toByteArray(Charsets.UTF_8))
+                        )
+                    }
+
+                    // 3. /api/spotify/* — proxies GET requests to Spotify Web API v1.
+                    //    Allows app.js to make authenticated Spotify calls without a
+                    //    separate server; kein externer Server nötig.
+                    if (path.startsWith("/api/spotify/")) {
+                        return proxySpotifyApi(request)
+                    }
+
+                    // 4. Spotify SDK JS — download, patch mobile-detection, serve cached.
                     if (url == SDK_URL) {
                         return fetchAndPatchSdkJs()
                     }
@@ -169,6 +184,37 @@ class SpotifyWebPlayer(private val context: Context) {
         } catch (e: Exception) {
             Log.e("SpotifyWebView", "fetchAndPatchSdkJs error: ${e.message}")
             return null
+        }
+    }
+
+    /**
+     * Proxies a GET request from /api/spotify/<path> to https://api.spotify.com/v1/<path>
+     * with the current Bearer token injected. Called on a background thread.
+     * POST/PUT bodies are not forwarded (WebResourceRequest doesn't expose them);
+     * those calls continue to go through Kotlin/Retrofit as before.
+     */
+    private fun proxySpotifyApi(request: WebResourceRequest): WebResourceResponse? {
+        val spotifyPath = request.url.path?.removePrefix("/api/spotify") ?: return null
+        val query = request.url.query?.let { "?$it" } ?: ""
+        val spotifyUrl = "https://api.spotify.com/v1$spotifyPath$query"
+        val token = accessTokenProvider() ?: return null
+
+        return try {
+            val conn = URL(spotifyUrl).openConnection() as HttpURLConnection
+            conn.requestMethod = "GET"
+            conn.setRequestProperty("Authorization", "Bearer $token")
+            conn.setRequestProperty("Accept", "application/json")
+            conn.connectTimeout = 10_000
+            conn.readTimeout = 15_000
+
+            val code = conn.responseCode
+            val stream = if (code < 400) conn.inputStream else conn.errorStream
+            val mime = conn.contentType?.substringBefore(";")?.trim() ?: "application/json"
+            Log.d("SpotifyWebView", "proxySpotifyApi $spotifyPath → $code")
+            WebResourceResponse(mime, "utf-8", code, conn.responseMessage ?: "OK", emptyMap(), stream)
+        } catch (e: Exception) {
+            Log.e("SpotifyWebView", "proxySpotifyApi error: ${e.message}")
+            null
         }
     }
 
