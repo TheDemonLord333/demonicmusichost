@@ -13,6 +13,20 @@
         android:layout_height="wrap_content"
         android:padding="24dp">
 
+        <!-- Settings Button (top-right) -->
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_settings"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Einstellungen"
+            android:padding="8dp"
+            app:tint="@color/text_secondary"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            android:layout_marginTop="4dp" />
+
         <!-- Logo / Title -->
         <ImageView
             android:id="@+id/ivLogo"

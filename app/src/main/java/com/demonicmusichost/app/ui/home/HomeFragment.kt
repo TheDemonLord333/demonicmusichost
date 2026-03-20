@@ -62,6 +62,10 @@ class HomeFragment : Fragment() {
             viewModel.returnToActiveSession()
         }
 
+        binding.btnSettings.setOnClickListener {
+            findNavController().navigate(HomeFragmentDirections.actionHomeToSettings())
+        }
+
         binding.etSessionCode.setOnEditorActionListener { _, _, _ ->
             val code = binding.etSessionCode.text.toString()
             viewModel.joinSession(code)

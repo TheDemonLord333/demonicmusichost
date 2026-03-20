@@ -55,6 +55,18 @@
     <string name="error_session_inactive">Diese Session ist nicht mehr aktiv</string>
     <string name="error_guests_cannot_add">Der Host hat das Hinzufügen von Songs deaktiviert</string>
 
+    <!-- Settings -->
+    <string name="settings">Einstellungen</string>
+    <string name="backend_url_label">Backend-URL</string>
+    <string name="backend_url_saved">Backend-URL gespeichert</string>
+    <string name="backend_url_reset">Auf Standard zurückgesetzt</string>
+    <string name="test_connection">Verbindung testen</string>
+    <string name="save">Speichern</string>
+    <string name="web_invite_title">Web-Gäste einladen</string>
+    <string name="web_invite_subtitle">Scanne den Code oder teile den Link</string>
+    <string name="web_invite_hint">App-Gäste nutzen weiterhin den Firebase-Code</string>
+    <string name="backend_not_configured">Backend nicht konfiguriert. Einstellungen öffnen?</string>
+
     <!-- Accessibility -->
     <string name="play_pause">Play / Pause</string>
     <string name="skip">Überspringen</string>

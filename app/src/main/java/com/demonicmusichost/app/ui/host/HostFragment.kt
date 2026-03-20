@@ -1,6 +1,8 @@
 package com.demonicmusichost.app.ui.host
 
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -17,13 +19,21 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.demonicmusichost.app.R
 import com.demonicmusichost.app.data.model.SongSource
+import com.demonicmusichost.app.data.network.BackendConfig
+import com.demonicmusichost.app.databinding.DialogWebInviteBinding
 import com.demonicmusichost.app.databinding.FragmentHostBinding
 import com.demonicmusichost.app.service.MusicService
 import com.demonicmusichost.app.ui.queue.QueueAdapter
 import com.demonicmusichost.app.util.copyToClipboard
 import com.demonicmusichost.app.util.showSnackbar
 import com.demonicmusichost.app.util.toTimeString
+import com.google.android.material.bottomsheet.BottomSheetDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.qrcode.QRCodeWriter
+import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.YouTubePlayer
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.listeners.AbstractYouTubePlayerListener
 import com.pierfrancescosoffritti.androidyoutubeplayer.core.player.views.YouTubePlayerView
@@ -38,6 +48,8 @@ class HostFragment : Fragment() {
 
     private val viewModel: HostViewModel by viewModels()
     private lateinit var queueAdapter: QueueAdapter
+
+    @Inject lateinit var backendConfig: BackendConfig
 
     /** Reference to the YouTubePlayer once it is ready. */
     private var youTubePlayer: YouTubePlayer? = null
@@ -106,6 +118,8 @@ class HostFragment : Fragment() {
 
         binding.btnToggleGuestAdd.setOnClickListener { viewModel.toggleGuestsCanAdd() }
 
+        binding.btnWebInvite.setOnClickListener { showWebInviteDialog() }
+
         binding.btnEndSession.setOnClickListener {
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle("Session beenden")
@@ -114,6 +128,64 @@ class HostFragment : Fragment() {
                 .setNegativeButton("Abbrechen", null)
                 .show()
         }
+    }
+
+    // ── Web-Gäste einladen (QR-Code BottomSheet) ──────────────────────────
+
+    private fun showWebInviteDialog() {
+        val backendCode = viewModel.getBackendSessionCode()
+        if (backendCode.isBlank()) {
+            MaterialAlertDialogBuilder(requireContext())
+                .setTitle("Backend nicht bereit")
+                .setMessage("Das Backend ist noch nicht verbunden oder nicht konfiguriert.\n\nEinstellungen öffnen?")
+                .setPositiveButton("Einstellungen") { _, _ ->
+                    findNavController().navigate(R.id.settingsFragment)
+                }
+                .setNegativeButton("Abbrechen", null)
+                .show()
+            return
+        }
+
+        val inviteUrl = "${backendConfig.baseUrl}/guest.html?code=$backendCode"
+        val dialogBinding = DialogWebInviteBinding.inflate(layoutInflater)
+
+        val dialog = BottomSheetDialog(requireContext()).apply {
+            setContentView(dialogBinding.root)
+        }
+
+        // QR-Code generieren
+        runCatching {
+            val hints = mapOf(EncodeHintType.MARGIN to 1)
+            val bits  = QRCodeWriter().encode(inviteUrl, BarcodeFormat.QR_CODE, 512, 512, hints)
+            val bmp   = Bitmap.createBitmap(512, 512, Bitmap.Config.RGB_565)
+            for (x in 0 until 512) {
+                for (y in 0 until 512) {
+                    bmp.setPixel(x, y, if (bits[x, y]) Color.BLACK else Color.WHITE)
+                }
+            }
+            dialogBinding.ivQrCode.setImageBitmap(bmp)
+        }.onFailure {
+            dialogBinding.ivQrCode.isVisible = false
+        }
+
+        dialogBinding.tvInviteUrl.text = inviteUrl
+
+        dialogBinding.btnCopyUrl.setOnClickListener {
+            requireContext().copyToClipboard("Einlade-Link", inviteUrl)
+            binding.root.showSnackbar("Link kopiert")
+        }
+
+        dialogBinding.btnShare.setOnClickListener {
+            val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_TEXT, "Tritt meiner Musik-Session bei: $inviteUrl")
+            }
+            startActivity(Intent.createChooser(shareIntent, "Session teilen"))
+        }
+
+        dialogBinding.btnClose.setOnClickListener { dialog.dismiss() }
+
+        dialog.show()
     }
 
     private fun setupYouTubePlayer() {

@@ -285,6 +285,20 @@
                     app:iconTint="@color/text_primary" />
 
                 <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnWebInvite"
+                    android:layout_width="match_parent"
+                    android:layout_height="48dp"
+                    android:layout_marginTop="8dp"
+                    android:text="🌐 Web-Gäste einladen (QR-Code)"
+                    android:textSize="13sp"
+                    android:textColor="@color/text_primary"
+                    app:backgroundTint="@color/background_elevated"
+                    app:strokeColor="@color/discord_blurple"
+                    app:strokeWidth="1dp"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    app:cornerRadius="24dp" />
+
+                <com.google.android.material.button.MaterialButton
                     android:id="@+id/btnToggleGuestAdd"
                     android:layout_width="match_parent"
                     android:layout_height="44dp"
