@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "DemonicMusicHost"
 include(":app")
+include(":backend")

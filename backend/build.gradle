@@ -1,0 +1,55 @@
+plugins {
+    id("org.jetbrains.kotlin.jvm")
+    id("io.ktor.plugin")
+    id("org.jetbrains.kotlin.plugin.serialization")
+    application
+}
+
+group   = "com.demonicmusichost"
+version = "1.0.0"
+
+application {
+    mainClass.set("com.demonicmusichost.backend.ApplicationKt")
+    applicationDefaultJvmArgs = ["-Dio.ktor.development=false"]
+}
+
+kotlin {
+    jvmToolchain(17)
+}
+
+ktor {
+    fatJar {
+        archiveFileName.set("demonicmusichost-backend.jar")
+    }
+}
+
+dependencies {
+    def ktor = "3.0.3"
+    def coroutines = "1.9.0"
+    def serialization = "1.7.3"
+
+    // Ktor Server
+    implementation("io.ktor:ktor-server-core:$ktor")
+    implementation("io.ktor:ktor-server-netty:$ktor")
+    implementation("io.ktor:ktor-server-websockets:$ktor")
+    implementation("io.ktor:ktor-server-content-negotiation:$ktor")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor")
+    implementation("io.ktor:ktor-server-cors:$ktor")
+    implementation("io.ktor:ktor-server-sessions:$ktor")
+    implementation("io.ktor:ktor-server-call-logging:$ktor")
+    implementation("io.ktor:ktor-server-status-pages:$ktor")
+    implementation("io.ktor:ktor-server-default-headers:$ktor")
+
+    // Ktor Client (Spotify + YouTube API calls)
+    implementation("io.ktor:ktor-client-core:$ktor")
+    implementation("io.ktor:ktor-client-cio:$ktor")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktor")
+    implementation("io.ktor:ktor-client-logging:$ktor")
+
+    // Serialization + Coroutines
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serialization")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutines")
+
+    // Logging
+    implementation("ch.qos.logback:logback-classic:1.4.14")
+}
