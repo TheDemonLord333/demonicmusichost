@@ -87,6 +87,53 @@ fun Route.authRoutes(spotify: SpotifyService, sessionService: SessionService) {
             call.respond(mapOf("access_token" to token))
         }
 
+        // POST /auth/register-token
+        // → Android-App registriert ihren Spotify-Token und erhält einen Session-Code.
+        //   Die App verwaltet Token-Refresh selbst; der Server speichert nur den
+        //   aktuellen Token für Proxy-Suche und Web-Client-Sync.
+        post("/register-token") {
+            @Serializable
+            data class RegisterBody(
+                val userId: String,
+                val displayName: String,
+                val accessToken: String,
+                val refreshToken: String = "",
+                val expiresIn: Int = 3600
+            )
+            @Serializable
+            data class RegisterResponse(val sessionCode: String, val sessionId: String)
+
+            val body = runCatching { call.receive<RegisterBody>() }.getOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "invalid body"))
+
+            if (body.userId.isBlank() || body.accessToken.isBlank()) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("error" to "userId and accessToken required"))
+                return@post
+            }
+
+            spotify.storeTokens(body.userId, body.accessToken, body.refreshToken, body.expiresIn)
+            val session = sessionService.createSession(body.userId, body.displayName)
+            log.info("Android register-token: userId=${body.userId} name=${body.displayName} code=${session.sessionCode}")
+            call.respond(RegisterResponse(sessionCode = session.sessionCode, sessionId = session.sessionId))
+        }
+
+        // POST /auth/refresh-token
+        // → Android-App meldet neuen Token (nach SDK-seitigem Refresh)
+        post("/refresh-token") {
+            @Serializable
+            data class RefreshBody(val userId: String, val accessToken: String, val expiresIn: Int = 3600)
+
+            val body = runCatching { call.receive<RefreshBody>() }.getOrNull()
+                ?: return@post call.respond(HttpStatusCode.BadRequest, mapOf("error" to "invalid body"))
+
+            val existing = spotify.getTokens(body.userId)
+                ?: return@post call.respond(HttpStatusCode.NotFound, mapOf("error" to "no session for userId"))
+
+            spotify.storeTokens(body.userId, body.accessToken, existing.refreshToken, body.expiresIn)
+            log.info("Token refreshed for userId=${body.userId}")
+            call.respond(HttpStatusCode.NoContent)
+        }
+
         // POST /auth/logout
         get("/logout") {
             val userSession = call.sessions.get<UserSession>()

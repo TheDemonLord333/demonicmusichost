@@ -8,9 +8,11 @@ import com.demonicmusichost.app.data.model.PlaybackState
 import com.demonicmusichost.app.data.model.Session
 import com.demonicmusichost.app.data.model.Song
 import com.demonicmusichost.app.data.model.SongSource
+import com.demonicmusichost.app.data.network.BackendSyncManager
 import com.demonicmusichost.app.data.repository.SessionRepository
 import com.demonicmusichost.app.data.repository.SpotifyRepository
 import com.demonicmusichost.app.service.PlaybackEventBus
+import kotlinx.coroutines.Dispatchers
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -43,6 +45,7 @@ class HostViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val spotifyRepository: SpotifyRepository,
     private val playbackEventBus: PlaybackEventBus,
+    private val backendSyncManager: BackendSyncManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -73,7 +76,32 @@ class HostViewModel @Inject constructor(
         observeSession()
         observeQueue()
         observeSongEnded()
+        initBackendSync()
     }
+
+    /**
+     * Registriert den Spotify-Token beim Backend und erstellt dort eine parallele Session.
+     * Läuft im IO-Dispatcher, fire-and-forget — Backend-Fehler beeinflussen das native
+     * Playback nicht. Nach Erfolg wird der WebSocket als "host" verbunden.
+     */
+    private fun initBackendSync() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val token = spotifyRepository.accessToken ?: return@launch
+            val uid   = spotifyRepository.userId      ?: return@launch
+            val name  = spotifyRepository.displayName ?: "Host"
+            val expiresInSec = ((spotifyRepository.tokenExpiry - System.currentTimeMillis()) / 1000)
+                .toInt().coerceAtLeast(300)
+
+            backendSyncManager.registerAndCreateSession(uid, name, token, expiresInSec)
+            backendSyncManager.connectWebSocket()
+        }
+    }
+
+    /**
+     * Gibt den Backend-Session-Code zurück (6-stellig, für QR-Code / Web-Gäste).
+     * Leer wenn das Backend nicht konfiguriert oder noch nicht verbunden ist.
+     */
+    fun getBackendSessionCode(): String = backendSyncManager.sessionCode
 
     /**
      * Listens to [PlaybackEventBus.songEnded] which is fired by MusicService (local files)
@@ -252,6 +280,9 @@ class HostViewModel @Inject constructor(
                 sessionId,
                 PlaybackInfo(state = PlaybackState.PAUSED, positionMs = _playbackPositionMs.value)
             )
+            viewModelScope.launch(Dispatchers.IO) {
+                backendSyncManager.syncNowPlaying(_currentSong.value, false, _playbackPositionMs.value)
+            }
         }.onFailure { e ->
             _events.emit(HostEvent.ShowError("Pause fehlgeschlagen: ${e.message}"))
         }
@@ -275,6 +306,9 @@ class HostViewModel @Inject constructor(
                 sessionId,
                 PlaybackInfo(state = PlaybackState.PLAYING, positionMs = _playbackPositionMs.value)
             )
+            viewModelScope.launch(Dispatchers.IO) {
+                backendSyncManager.syncNowPlaying(_currentSong.value, true, _playbackPositionMs.value)
+            }
         }.onFailure { e ->
             _events.emit(HostEvent.ShowError("Wiedergabe fehlgeschlagen: ${e.message}"))
         }
@@ -325,6 +359,10 @@ class HostViewModel @Inject constructor(
                     sessionId,
                     PlaybackInfo(state = PlaybackState.PLAYING, positionMs = 0L)
                 )
+                viewModelScope.launch(Dispatchers.IO) {
+                    backendSyncManager.syncNowPlaying(nextSong, true, 0L)
+                    backendSyncManager.syncQueueRemove(nextSong.id)
+                }
             }.onFailure { e ->
                 // "__pending__" is a sentinel: the play was queued and will auto-start
                 // when the SDK device registers. No error should be shown to the user.
@@ -416,6 +454,9 @@ class HostViewModel @Inject constructor(
     fun removeFromQueue(song: Song) {
         viewModelScope.launch {
             sessionRepository.removeFromQueue(sessionId, song.id)
+                .onSuccess {
+                    viewModelScope.launch(Dispatchers.IO) { backendSyncManager.syncQueueRemove(song.id) }
+                }
                 .onFailure { e -> _events.emit(HostEvent.ShowError("Entfernen fehlgeschlagen: ${e.message}")) }
         }
     }
@@ -448,5 +489,6 @@ class HostViewModel @Inject constructor(
     override fun onCleared() {
         super.onCleared()
         spotifyRepository.stopPolling()
+        backendSyncManager.disconnect()
     }
 }

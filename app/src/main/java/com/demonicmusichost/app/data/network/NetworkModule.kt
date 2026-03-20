@@ -62,4 +62,7 @@ object NetworkModule {
     @Singleton
     fun provideSpotifyApiService(@Named("spotify") retrofit: Retrofit): SpotifyApiService =
         retrofit.create(SpotifyApiService::class.java)
+
+    // BackendConfig und BackendSyncManager werden von Hilt über @Inject constructor
+    // automatisch bereitgestellt — kein explizites @Provides nötig.
 }

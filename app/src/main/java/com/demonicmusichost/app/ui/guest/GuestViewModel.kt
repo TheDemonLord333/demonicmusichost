@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.demonicmusichost.app.data.model.Session
 import com.demonicmusichost.app.data.model.Song
 import com.demonicmusichost.app.data.model.SongSource
+import com.demonicmusichost.app.data.network.BackendSyncManager
 import com.demonicmusichost.app.data.repository.SessionRepository
 import com.demonicmusichost.app.data.repository.SpotifyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -32,6 +33,7 @@ sealed class GuestEvent {
 class GuestViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val spotifyRepository: SpotifyRepository,
+    private val backendSyncManager: BackendSyncManager,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -92,6 +94,10 @@ class GuestViewModel @Inject constructor(
             sessionRepository.addSongToQueue(sessionId, song)
                 .onSuccess {
                     _events.emit(GuestEvent.ShowMessage("\"${song.title}\" zur Warteschlange hinzugefügt"))
+                    // Backend sync: Song auch in Ktor-Session sichtbar machen
+                    launch(kotlinx.coroutines.Dispatchers.IO) {
+                        backendSyncManager.syncQueueAdd(song)
+                    }
                 }
                 .onFailure { e ->
                     _events.emit(GuestEvent.ShowError("Fehler: ${e.message}"))
