@@ -15,6 +15,7 @@ import io.ktor.server.plugins.cors.routing.*
 import io.ktor.server.plugins.defaultheaders.*
 import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
+import io.ktor.server.http.content.*
 import io.ktor.server.routing.*
 import io.ktor.server.sessions.*
 import io.ktor.server.websocket.*
@@ -113,10 +114,12 @@ fun Application.module() {
 
         authRoutes(spotifyService, sessionService)
         sessionRoutes(sessionService, spotifyService)
-        searchRoutes(spotifyService, youtubeService)
+        searchRoutes(spotifyService, youtubeService, sessionService)
         wsRoutes(hub, sessionService)
 
-        // Statische Web-Assets — werden in Phase 2 (Web-Frontend) ergänzt
-        // staticFiles("/", File("web/dist"))
+        // Statische Web-Assets aus dem JAR (resources/static/)
+        staticResources("/", "static") {
+            defaultResource("index.html")
+        }
     }
 }

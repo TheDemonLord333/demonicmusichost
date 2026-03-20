@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Demonic Music Host</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    .features {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 2.5rem;
+      max-width: 640px;
+    }
+    .feature {
+      text-align: center;
+      flex: 1 1 140px;
+      max-width: 160px;
+    }
+    .feature .icon { font-size: 1.8rem; margin-bottom: .4rem; }
+    .feature p { font-size: .8rem; color: var(--text-muted); }
+  </style>
+</head>
+<body>
+<div class="landing">
+  <div class="landing-logo">🎸 DMH</div>
+  <h1 class="landing-logo" style="font-size:2rem;margin-top:.25rem">Demonic Music Host</h1>
+  <p class="landing-sub">Musik gemeinsam erleben — Host spielt, Gäste queuen</p>
+
+  <div class="landing-cards">
+    <div class="card landing-card" onclick="startHost()">
+      <div class="icon">🎧</div>
+      <h2>Host werden</h2>
+      <p>Erstelle eine Session und spiele Musik über Spotify für alle.</p>
+      <button class="btn btn-primary btn-full">Mit Spotify einloggen</button>
+    </div>
+    <div class="card landing-card" onclick="joinGuest()">
+      <div class="icon">🎵</div>
+      <h2>Session beitreten</h2>
+      <p>Gib den 6-stelligen Code des Hosts ein und füge Songs zur Queue hinzu.</p>
+      <button class="btn btn-ghost btn-full">Beitreten</button>
+    </div>
+  </div>
+
+  <div class="features">
+    <div class="feature">
+      <div class="icon">🟢</div>
+      <p>Echtzeit-Sync via WebSocket</p>
+    </div>
+    <div class="feature">
+      <div class="icon">🔍</div>
+      <p>Spotify + YouTube Suche</p>
+    </div>
+    <div class="feature">
+      <div class="icon">📱</div>
+      <p>Bis zu 50 Gäste</p>
+    </div>
+    <div class="feature">
+      <div class="icon">📋</div>
+      <p>Gemeinsame Queue</p>
+    </div>
+  </div>
+
+  <p class="text-muted" style="margin-top:3rem;font-size:.8rem">
+    Kein Account für Gäste nötig &bull; Spotify Premium für den Host erforderlich
+  </p>
+</div>
+
+<div id="toast-container"></div>
+<script>
+  function startHost() {
+    window.location.href = '/auth/login';
+  }
+  function joinGuest() {
+    window.location.href = '/guest.html';
+  }
+
+  // Auth-Error aus URL anzeigen
+  const err = new URLSearchParams(location.search).get('auth_error');
+  if (err) {
+    const tc = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = 'toast error';
+    t.textContent = 'Login fehlgeschlagen: ' + err;
+    tc.appendChild(t);
+    setTimeout(() => t.remove(), 5000);
+  }
+</script>
+</body>
+</html>

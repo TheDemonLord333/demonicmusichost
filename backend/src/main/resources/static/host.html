@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host Dashboard — DMH</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <!-- Spotify Web Playback SDK -->
+  <script src="https://sdk.scdn.co/spotify-player.js"></script>
+</head>
+<body>
+<div class="host-layout">
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="logo">🎸 Demonic Music Host</div>
+
+    <div class="flex items-center gap-sm">
+      <span class="text-muted" style="font-size:.85rem">Session-Code:</span>
+      <span id="session-code" class="session-code" title="Klicken zum Kopieren"
+            onclick="copyCode()">——</span>
+      <button class="btn btn-icon btn-sm" onclick="copyCode()" title="Code kopieren">📋</button>
+    </div>
+
+    <div class="flex items-center gap-sm">
+      <span class="status-dot connecting" id="ws-dot"></span>
+      <span id="ws-label" class="text-muted" style="font-size:.8rem">Verbindet…</span>
+      <span class="text-muted">|</span>
+      <span id="guest-count" class="text-muted" style="font-size:.85rem">0 Gäste</span>
+      <button class="btn btn-danger btn-sm" onclick="endSession()">Session beenden</button>
+    </div>
+  </div>
+
+  <!-- Main Grid -->
+  <div class="host-main">
+
+    <!-- LEFT: Player -->
+    <div class="host-left">
+      <div class="card" style="flex:none">
+        <div id="np-art-wrap" style="position:relative;margin-bottom:.75rem">
+          <img id="np-art" class="now-playing-art" src="" alt=""
+               onerror="this.style.display='none';document.getElementById('np-placeholder').style.display='flex'">
+          <div id="np-placeholder" class="now-playing-art placeholder"
+               style="display:flex;aspect-ratio:1">🎵</div>
+        </div>
+
+        <div style="margin-bottom:.6rem">
+          <div id="np-title" style="font-weight:700;font-size:1.05rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Nichts läuft</div>
+          <div id="np-artist" class="text-muted" style="font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+          <div id="np-album" class="text-muted" style="font-size:.8rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-bar-wrap" id="progress-wrap" style="margin-bottom:.75rem"
+             onclick="seekTo(event)">
+          <div class="progress-bar-fill" id="progress-fill" style="width:0%"></div>
+        </div>
+        <div class="flex justify-between text-muted" style="font-size:.75rem;margin-top:-.5rem;margin-bottom:.75rem">
+          <span id="pos-label">0:00</span>
+          <span id="dur-label">0:00</span>
+        </div>
+
+        <!-- Controls -->
+        <div class="controls">
+          <button class="ctrl-btn" onclick="skipPrev()" title="Vorheriger">⏮</button>
+          <button class="ctrl-btn play-pause" id="play-btn" onclick="togglePlay()">▶</button>
+          <button class="ctrl-btn" onclick="skipNext()" title="Nächster">⏭</button>
+        </div>
+
+        <!-- Volume -->
+        <div class="flex items-center gap-sm" style="margin-top:.75rem">
+          <span style="font-size:1rem">🔊</span>
+          <input id="volume-slider" type="range" min="0" max="100" value="80"
+                 style="flex:1;accent-color:var(--primary)"
+                 oninput="setVolume(this.value)">
+        </div>
+
+        <!-- Spotify SDK Status -->
+        <div id="sdk-status" class="text-muted" style="font-size:.78rem;text-align:center;margin-top:.5rem">
+          Spotify Player wird initialisiert…
+        </div>
+      </div>
+
+      <!-- Guest-Liste -->
+      <div class="card" style="flex:none;max-height:180px;overflow:hidden;display:flex;flex-direction:column">
+        <h3 style="margin-bottom:.5rem;flex-shrink:0">👥 Gäste</h3>
+        <ul id="guest-list" class="queue-list" style="overflow-y:auto;flex:1">
+          <li class="text-muted" style="font-size:.85rem;padding:.3rem 0">Noch keine Gäste</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- RIGHT: Queue + Search -->
+    <div class="host-right">
+
+      <!-- Search -->
+      <div class="card" style="flex:none">
+        <h3 style="margin-bottom:.75rem">🔍 Song hinzufügen</h3>
+        <div class="flex gap-sm">
+          <input id="search-input" class="input" type="text"
+                 placeholder="Spotify oder YouTube durchsuchen…"
+                 onkeydown="if(event.key==='Enter') doSearch()">
+          <button class="btn btn-primary shrink-0" onclick="doSearch()">Suchen</button>
+        </div>
+        <div class="flex gap-sm" style="margin-top:.6rem">
+          <button class="btn btn-sm btn-ghost" id="src-all"     onclick="setSource('all')"     >Alle</button>
+          <button class="btn btn-sm btn-ghost" id="src-spotify" onclick="setSource('spotify')" >Spotify</button>
+          <button class="btn btn-sm btn-ghost" id="src-youtube" onclick="setSource('youtube')" >YouTube</button>
+        </div>
+        <ul id="search-results" class="search-results" style="margin-top:.75rem"></ul>
+      </div>
+
+      <!-- Queue -->
+      <div class="card queue-container">
+        <div class="flex justify-between items-center" style="margin-bottom:.75rem;flex-shrink:0">
+          <h3>📋 Queue</h3>
+          <div class="flex gap-sm items-center">
+            <span id="queue-count" class="text-muted" style="font-size:.82rem">0 Songs</span>
+            <button class="btn btn-sm btn-ghost" onclick="playNext()" title="Nächsten spielen">⏭ Next</button>
+          </div>
+        </div>
+        <ul id="queue-list" class="queue-list"></ul>
+        <p id="queue-empty" class="text-muted"
+           style="text-align:center;padding:2rem 0;font-size:.88rem">
+          Queue ist leer — füge Songs über die Suche hinzu
+        </p>
+      </div>
+
+    </div><!-- .host-right -->
+  </div><!-- .host-main -->
+</div><!-- .host-layout -->
+
+<div id="toast-container"></div>
+<script src="/js/ws-client.js"></script>
+<script src="/js/host.js"></script>
+</body>
+</html>

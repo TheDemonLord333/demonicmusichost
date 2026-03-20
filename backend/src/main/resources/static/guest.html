@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Session beitreten — DMH</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+<!-- ── Join Screen ──────────────────────────────────── -->
+<div id="join-screen" class="guest-join">
+  <div class="card guest-join-card">
+    <div style="text-align:center;margin-bottom:1.5rem">
+      <div style="font-size:2rem;margin-bottom:.25rem">🎵</div>
+      <h1 style="font-size:1.5rem">Session beitreten</h1>
+      <p class="text-muted" style="font-size:.88rem;margin-top:.25rem">
+        Gib den Code des Hosts ein
+      </p>
+    </div>
+
+    <form id="join-form" class="flex-col gap-md">
+      <div>
+        <label for="code-input">Session-Code</label>
+        <input id="code-input" class="input" type="text" maxlength="6"
+               placeholder="ABC123" autocomplete="off"
+               style="text-transform:uppercase;letter-spacing:.2em;font-size:1.3rem;text-align:center"
+               required>
+      </div>
+      <div>
+        <label for="name-input">Dein Name</label>
+        <input id="name-input" class="input" type="text" maxlength="32"
+               placeholder="z.B. Max" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full btn-lg">Beitreten</button>
+      <a href="/" class="btn btn-ghost btn-full" style="justify-content:center">← Zurück</a>
+    </form>
+
+    <p id="join-error" class="text-accent" style="text-align:center;margin-top:.75rem;display:none"></p>
+  </div>
+</div>
+
+<!-- ── Guest Dashboard ──────────────────────────────── -->
+<div id="dashboard" class="guest-layout" style="display:none">
+
+  <!-- Top Bar -->
+  <div class="topbar">
+    <div class="logo">🎸 DMH</div>
+    <div class="flex items-center gap-sm">
+      <span id="host-name" class="text-muted" style="font-size:.88rem"></span>
+      <span class="text-muted">·</span>
+      <span id="session-code-top" class="session-code" style="font-size:1rem"></span>
+    </div>
+    <div class="flex items-center gap-sm">
+      <span class="status-dot connecting" id="ws-dot"></span>
+      <span id="ws-label" class="text-muted" style="font-size:.8rem">Verbindet…</span>
+    </div>
+  </div>
+
+  <div class="guest-main" style="overflow:auto">
+
+    <!-- Now Playing -->
+    <div class="card">
+      <h3 style="margin-bottom:.75rem">▶ Läuft gerade</h3>
+      <div class="flex gap-md items-center">
+        <img id="np-art" class="now-playing-art" src="" alt=""
+             style="width:70px;height:70px;border-radius:8px;background:var(--bg-raised)"
+             onerror="this.style.display='none'">
+        <div id="np-placeholder" style="width:70px;height:70px;border-radius:8px;background:var(--bg-raised);display:flex;align-items:center;justify-content:center;font-size:2rem;flex-shrink:0">🎵</div>
+        <div class="grow" style="min-width:0">
+          <div id="np-title" style="font-weight:700;font-size:1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+          <div id="np-artist" class="text-muted" style="font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">—</div>
+          <div id="np-state" class="text-muted" style="font-size:.78rem;margin-top:.2rem">Gestoppt</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="card">
+      <h3 style="margin-bottom:.75rem">🔍 Songs suchen</h3>
+      <div class="flex gap-sm">
+        <input id="search-input" class="input" type="text"
+               placeholder="Spotify oder YouTube durchsuchen…">
+        <button id="search-btn" class="btn btn-primary shrink-0" onclick="doSearch()">Suchen</button>
+      </div>
+      <div class="flex gap-sm" style="margin-top:.6rem">
+        <button class="btn btn-sm btn-ghost" id="src-all"     onclick="setSource('all')"    >Alle</button>
+        <button class="btn btn-sm btn-ghost" id="src-spotify" onclick="setSource('spotify')">Spotify</button>
+        <button class="btn btn-sm btn-ghost" id="src-youtube" onclick="setSource('youtube')">YouTube</button>
+      </div>
+      <ul id="search-results" class="search-results" style="margin-top:.75rem"></ul>
+    </div>
+
+    <!-- Queue -->
+    <div class="card queue-container" style="min-height:200px">
+      <div class="flex justify-between items-center" style="margin-bottom:.75rem">
+        <h3>📋 Queue</h3>
+        <span id="queue-count" class="text-muted" style="font-size:.82rem">0 Songs</span>
+      </div>
+      <ul id="queue-list" class="queue-list"></ul>
+      <p id="queue-empty" class="text-muted" style="text-align:center;padding:1.5rem 0;font-size:.88rem">
+        Noch keine Songs in der Queue
+      </p>
+    </div>
+
+  </div><!-- .guest-main -->
+</div><!-- #dashboard -->
+
+<div id="toast-container"></div>
+
+<script src="/js/ws-client.js"></script>
+<script src="/js/guest.js"></script>
+</body>
+</html>
