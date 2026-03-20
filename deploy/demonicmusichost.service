@@ -1,0 +1,39 @@
+[Unit]
+Description=Demonic Music Host – Ktor Backend
+Documentation=https://github.com/TheDemonLord333/demonicmusichost
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=demonicmusichost
+Group=demonicmusichost
+WorkingDirectory=/opt/demonicmusichost
+
+# Load environment variables (Spotify credentials, YouTube API key, etc.)
+EnvironmentFile=/opt/demonicmusichost/demonicmusichost.env
+
+# Start the fat JAR
+ExecStart=/usr/bin/java \
+    -Xms128m \
+    -Xmx512m \
+    -jar /opt/demonicmusichost/demonicmusichost-backend.jar
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+# Security hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ReadWritePaths=/opt/demonicmusichost /var/log/demonicmusichost
+
+# Logging – journal + optional log file via stdout redirect
+StandardOutput=append:/var/log/demonicmusichost/backend.log
+StandardError=append:/var/log/demonicmusichost/backend.log
+
+[Install]
+WantedBy=multi-user.target
